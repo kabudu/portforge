@@ -1,0 +1,92 @@
+[package]
+name = "portforge"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kamba <kabudu@users.noreply.github.com>"]
+license = "MIT"
+description = "Modern cross-platform port inspector & manager for developers"
+repository = "https://github.com/kabudu/portforge"
+homepage = "https://github.com/kabudu/portforge"
+documentation = "https://github.com/kabudu/portforge#readme"
+readme = "README.md"
+keywords = ["port", "process", "developer-tools", "tui", "network"]
+categories = ["command-line-utilities", "development-tools", "network-programming"]
+rust-version = "1.75"
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive", "env", "string"] }
+
+# TUI
+ratatui = "0.30"
+crossterm = "0.29"
+
+# System info
+sysinfo = "0.33"
+
+# Port scanning
+listeners = "0.5"
+
+# Docker
+bollard = { version = "0.18", optional = true }
+
+# Project detection — manual heuristics (project-detect may not be on crates.io)
+# git
+git2 = "0.19"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client for health checks
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Table output (non-TUI)
+tabled = "0.17"
+
+# Directories
+dirs = "6"
+
+# Signal handling
+ctrlc = "3.4"
+
+# TTY detection
+atty = "0.2"
+
+# Web dashboard (optional)
+axum = { version = "0.8", optional = true }
+tower-http = { version = "0.6", features = ["cors", "fs"], optional = true }
+rust-embed = { version = "8", optional = true }
+askama = { version = "0.12", optional = true }
+askama_axum = { version = "0.4", optional = true }
+
+[features]
+default = ["docker"]
+docker = ["bollard"]
+web = ["axum", "tower-http", "rust-embed", "askama", "askama_axum"]
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3
