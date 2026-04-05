@@ -100,7 +100,11 @@ async fn main() -> Result<()> {
                 println!(
                     "\n{} process(es) {}.",
                     results.len(),
-                    if dry_run { "would be cleaned" } else { "cleaned" }
+                    if dry_run {
+                        "would be cleaned"
+                    } else {
+                        "cleaned"
+                    }
                 );
             }
         }
@@ -138,7 +142,10 @@ async fn main() -> Result<()> {
 
         #[cfg(feature = "web")]
         Some(Commands::Serve { port, bind }) => {
-            println!("⚡ Starting PortForge web dashboard on http://{}:{}", bind, port);
+            println!(
+                "⚡ Starting PortForge web dashboard on http://{}:{}",
+                bind, port
+            );
             portforge::web::server::start_server(&bind, port, config).await?;
         }
 

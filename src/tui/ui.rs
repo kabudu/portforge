@@ -23,7 +23,7 @@ pub fn render(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Header
+            Constraint::Length(3), // Header
             Constraint::Min(10),   // Content
             Constraint::Length(1), // Status bar
         ])
@@ -64,15 +64,13 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
         } else {
             "No dev project ports found. Press 'a' to show all ports."
         };
-        let paragraph = Paragraph::new(msg)
-            .style(Theme::muted())
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Theme::border())
-                    .title(Span::styled(" Ports ", Theme::title())),
-            );
+        let paragraph = Paragraph::new(msg).style(Theme::muted()).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Theme::border())
+                .title(Span::styled(" Ports ", Theme::title())),
+        );
         f.render_widget(paragraph, area);
         return;
     }
@@ -132,11 +130,13 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                 Cell::from(format!("{}", entry.pid)).style(Theme::muted()),
                 Cell::from(entry.process_name.clone()).style(Theme::process_name()),
                 Cell::from(entry.project_display()).style(Theme::info()),
-                Cell::from(entry.git_display()).style(if entry.git.as_ref().is_some_and(|g| g.dirty) {
-                    Theme::git_dirty()
-                } else {
-                    Theme::git_clean()
-                }),
+                Cell::from(entry.git_display()).style(
+                    if entry.git.as_ref().is_some_and(|g| g.dirty) {
+                        Theme::git_dirty()
+                    } else {
+                        Theme::git_clean()
+                    },
+                ),
                 Cell::from(entry.docker_display()).style(Theme::docker()),
                 Cell::from(entry.uptime_display()).style(Theme::muted()),
                 Cell::from(format!("{:.0}MB", entry.memory_mb)).style(Theme::muted()),
@@ -165,16 +165,16 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
     let table = Table::new(
         rows,
         [
-            Constraint::Length(7),   // Port
-            Constraint::Length(8),   // PID
-            Constraint::Length(15),  // Process
+            Constraint::Length(7),  // Port
+            Constraint::Length(8),  // PID
+            Constraint::Length(15), // Process
             Constraint::Min(18),    // Project
-            Constraint::Length(14),  // Git
-            Constraint::Length(14),  // Docker
-            Constraint::Length(9),   // Uptime
-            Constraint::Length(8),   // Mem
-            Constraint::Length(7),   // CPU
-            Constraint::Length(12),  // Status
+            Constraint::Length(14), // Git
+            Constraint::Length(14), // Docker
+            Constraint::Length(9),  // Uptime
+            Constraint::Length(8),  // Mem
+            Constraint::Length(7),  // CPU
+            Constraint::Length(12), // Status
         ],
     )
     .header(header)
@@ -202,7 +202,11 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
             .title_bottom(Line::from(vec![
                 Span::styled(" Sort: ", Theme::muted()),
                 Span::styled(
-                    format!("{} {}", app.sort_field.label(), app.sort_direction.indicator()),
+                    format!(
+                        "{} {}",
+                        app.sort_field.label(),
+                        app.sort_direction.indicator()
+                    ),
                     Theme::info(),
                 ),
                 Span::raw(" "),
@@ -225,7 +229,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(8),  // Basic info
+            Constraint::Length(8), // Basic info
             Constraint::Min(4),    // Extra sections
         ])
         .split(area);
@@ -234,7 +238,10 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     let basic_lines = vec![
         Line::from(vec![
             Span::styled("  Port:      ", Theme::muted()),
-            Span::styled(format!("{}/{}", entry.port, entry.protocol), Theme::port_number()),
+            Span::styled(
+                format!("{}/{}", entry.port, entry.protocol),
+                Theme::port_number(),
+            ),
         ]),
         Line::from(vec![
             Span::styled("  PID:       ", Theme::muted()),
@@ -298,7 +305,11 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("    Branch:    ", Theme::muted()),
             Span::styled(
                 &git.branch,
-                if git.dirty { Theme::git_dirty() } else { Theme::git_clean() },
+                if git.dirty {
+                    Theme::git_dirty()
+                } else {
+                    Theme::git_clean()
+                },
             ),
             if git.dirty {
                 Span::styled(" (modified)", Theme::warning())
@@ -323,7 +334,10 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     }
 
     if let Some(ref health) = entry.health_check {
-        extra_lines.push(Line::from(Span::styled("  🏥 Health Check", Theme::title())));
+        extra_lines.push(Line::from(Span::styled(
+            "  🏥 Health Check",
+            Theme::title(),
+        )));
         extra_lines.push(Line::from(vec![
             Span::styled("    Status:    ", Theme::muted()),
             Span::styled(
@@ -384,18 +398,14 @@ fn render_process_tree(f: &mut Frame, area: Rect, app: &App) {
         })
         .collect();
 
-    let paragraph = Paragraph::new(lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Theme::border_focus())
-                .title(Span::styled(" 🌲 Process Tree ", Theme::title()))
-                .title_bottom(Line::from(Span::styled(
-                    " ESC to go back ",
-                    Theme::muted(),
-                ))),
-        );
+    let paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Theme::border_focus())
+            .title(Span::styled(" 🌲 Process Tree ", Theme::title()))
+            .title_bottom(Line::from(Span::styled(" ESC to go back ", Theme::muted()))),
+    );
     f.render_widget(paragraph, area);
 }
 

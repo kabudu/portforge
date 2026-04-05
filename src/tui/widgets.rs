@@ -19,10 +19,7 @@ pub fn render_header(f: &mut Frame, area: Rect, app: &App) {
     let title = Paragraph::new(Line::from(vec![
         Span::styled(" ⚡ ", Theme::title()),
         Span::styled("PortForge", Theme::title()),
-        Span::styled(
-            format!(" v{}", env!("CARGO_PKG_VERSION")),
-            Theme::muted(),
-        ),
+        Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), Theme::muted()),
         if app.loading {
             Span::styled(" ⟳", Theme::info())
         } else {

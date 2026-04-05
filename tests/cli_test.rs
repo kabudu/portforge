@@ -52,9 +52,7 @@ fn test_cli_export_help() {
 #[test]
 fn test_cli_json_output() {
     let mut cmd = Command::cargo_bin("portforge").unwrap();
-    cmd.args(["ps", "--json", "--all"])
-        .assert()
-        .success();
+    cmd.args(["ps", "--json", "--all"]).assert().success();
 }
 
 #[test]

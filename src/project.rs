@@ -24,12 +24,38 @@ fn detect_in_dir(dir: &Path) -> Option<ProjectInfo> {
     // Check in priority order (most specific first)
     let detectors: Vec<(&str, &str, &[&str])> = vec![
         // Rust
-        ("Cargo.toml", "Rust", &["actix", "axum", "rocket", "warp", "tide"]),
+        (
+            "Cargo.toml",
+            "Rust",
+            &["actix", "axum", "rocket", "warp", "tide"],
+        ),
         // Node.js / JavaScript / TypeScript
-        ("package.json", "Node.js", &["next", "nuxt", "remix", "express", "fastify", "nest", "vite", "react", "vue", "angular", "svelte", "astro"]),
+        (
+            "package.json",
+            "Node.js",
+            &[
+                "next", "nuxt", "remix", "express", "fastify", "nest", "vite", "react", "vue",
+                "angular", "svelte", "astro",
+            ],
+        ),
         // Python
-        ("pyproject.toml", "Python", &["django", "flask", "fastapi", "starlette", "tornado", "sanic"]),
-        ("requirements.txt", "Python", &["django", "flask", "fastapi", "starlette"]),
+        (
+            "pyproject.toml",
+            "Python",
+            &[
+                "django",
+                "flask",
+                "fastapi",
+                "starlette",
+                "tornado",
+                "sanic",
+            ],
+        ),
+        (
+            "requirements.txt",
+            "Python",
+            &["django", "flask", "fastapi", "starlette"],
+        ),
         ("Pipfile", "Python", &["django", "flask", "fastapi"]),
         // Go
         ("go.mod", "Go", &["gin", "echo", "fiber", "chi", "mux"]),
@@ -37,7 +63,11 @@ fn detect_in_dir(dir: &Path) -> Option<ProjectInfo> {
         ("Gemfile", "Ruby", &["rails", "sinatra", "hanami"]),
         // Java / Kotlin
         ("pom.xml", "Java", &["spring", "quarkus", "micronaut"]),
-        ("build.gradle", "Java/Kotlin", &["spring", "ktor", "quarkus"]),
+        (
+            "build.gradle",
+            "Java/Kotlin",
+            &["spring", "ktor", "quarkus"],
+        ),
         ("build.gradle.kts", "Kotlin", &["spring", "ktor"]),
         // PHP
         ("composer.json", "PHP", &["laravel", "symfony", "slim"]),

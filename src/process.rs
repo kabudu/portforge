@@ -14,7 +14,10 @@ pub fn kill_process(entry: &PortEntry, force: bool) -> Result<()> {
             info!("Force killing PID {} (port {})", entry.pid, entry.port);
             Signal::Kill
         } else {
-            info!("Gracefully stopping PID {} (port {})", entry.pid, entry.port);
+            info!(
+                "Gracefully stopping PID {} (port {})",
+                entry.pid, entry.port
+            );
             Signal::Term
         };
 
@@ -107,12 +110,7 @@ pub fn get_process_tree(pid: u32) -> Vec<ProcessTreeEntry> {
     tree
 }
 
-fn collect_children(
-    sys: &System,
-    parent_pid: Pid,
-    tree: &mut Vec<ProcessTreeEntry>,
-    depth: usize,
-) {
+fn collect_children(sys: &System, parent_pid: Pid, tree: &mut Vec<ProcessTreeEntry>, depth: usize) {
     for (pid, process) in sys.processes() {
         if process.parent() == Some(parent_pid) {
             tree.push(ProcessTreeEntry {

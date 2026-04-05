@@ -40,10 +40,7 @@ pub async fn get_container_port_map() -> Result<HashMap<u16, DockerInfo>, String
 
         let image = container.image.clone().unwrap_or_default();
 
-        let container_id = container
-            .id
-            .clone()
-            .unwrap_or_default();
+        let container_id = container.id.clone().unwrap_or_default();
 
         // Extract compose project from labels
         let compose_project = container

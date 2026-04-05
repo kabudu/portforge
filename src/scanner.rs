@@ -79,14 +79,10 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 
         let cpu_percent = proc_info.map(|p| p.cpu_usage()).unwrap_or(0.0);
 
-        let uptime_secs = proc_info
-            .map(|p| p.run_time())
-            .unwrap_or(0);
+        let uptime_secs = proc_info.map(|p| p.run_time()).unwrap_or(0);
 
         // Project detection
-        let project_info = cwd
-            .as_ref()
-            .and_then(|cwd| project::detect_project(cwd));
+        let project_info = cwd.as_ref().and_then(|cwd| project::detect_project(cwd));
 
         // Git info
         let git_info = cwd.as_ref().and_then(|cwd| git::get_git_info(cwd));
@@ -205,10 +201,19 @@ pub fn sort_entries(entries: &mut [PortEntry], field: SortField, direction: Sort
         let ordering = match field {
             SortField::Port => a.port.cmp(&b.port),
             SortField::Pid => a.pid.cmp(&b.pid),
-            SortField::Process => a.process_name.to_lowercase().cmp(&b.process_name.to_lowercase()),
+            SortField::Process => a
+                .process_name
+                .to_lowercase()
+                .cmp(&b.process_name.to_lowercase()),
             SortField::Project => a.project_display().cmp(&b.project_display()),
-            SortField::Memory => a.memory_mb.partial_cmp(&b.memory_mb).unwrap_or(std::cmp::Ordering::Equal),
-            SortField::Cpu => a.cpu_percent.partial_cmp(&b.cpu_percent).unwrap_or(std::cmp::Ordering::Equal),
+            SortField::Memory => a
+                .memory_mb
+                .partial_cmp(&b.memory_mb)
+                .unwrap_or(std::cmp::Ordering::Equal),
+            SortField::Cpu => a
+                .cpu_percent
+                .partial_cmp(&b.cpu_percent)
+                .unwrap_or(std::cmp::Ordering::Equal),
             SortField::Uptime => a.uptime_secs.cmp(&b.uptime_secs),
             SortField::Status => a.status.priority().cmp(&b.status.priority()),
         };

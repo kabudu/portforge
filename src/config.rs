@@ -117,15 +117,17 @@ pub struct PortOverride {
     pub hidden: bool,
 }
 
-
-
 impl PortForgeConfig {
     /// Load configuration from the default path.
     pub fn load() -> Result<Self> {
         let path = Self::config_path();
         if path.exists() {
             let content = std::fs::read_to_string(&path).map_err(|e| {
-                PortForgeError::ConfigError(format!("Failed to read config at {}: {}", path.display(), e))
+                PortForgeError::ConfigError(format!(
+                    "Failed to read config at {}: {}",
+                    path.display(),
+                    e
+                ))
             })?;
             let config: PortForgeConfig = toml::from_str(&content).map_err(|e| {
                 PortForgeError::ConfigError(format!("Failed to parse config: {}", e))
@@ -156,9 +158,8 @@ impl PortForgeConfig {
 
 "#;
 
-        std::fs::write(&path, format!("{}{}", header, content)).map_err(|e| {
-            PortForgeError::ConfigError(format!("Failed to write config: {}", e))
-        })?;
+        std::fs::write(&path, format!("{}{}", header, content))
+            .map_err(|e| PortForgeError::ConfigError(format!("Failed to write config: {}", e)))?;
 
         Ok(path)
     }
@@ -190,6 +191,9 @@ mod tests {
         let config = PortForgeConfig::default();
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed: PortForgeConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.general.refresh_interval, config.general.refresh_interval);
+        assert_eq!(
+            parsed.general.refresh_interval,
+            config.general.refresh_interval
+        );
     }
 }

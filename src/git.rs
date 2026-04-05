@@ -9,7 +9,12 @@ pub fn get_git_info(dir: &Path) -> Option<GitInfo> {
     let branch = get_branch_name(&repo).unwrap_or_else(|| "HEAD".to_string());
     let dirty = is_dirty(&repo);
 
-    debug!("Git info for {}: branch={}, dirty={}", dir.display(), branch, dirty);
+    debug!(
+        "Git info for {}: branch={}, dirty={}",
+        dir.display(),
+        branch,
+        dirty
+    );
 
     Some(GitInfo { branch, dirty })
 }
@@ -22,16 +27,14 @@ fn get_branch_name(repo: &git2::Repository) -> Option<String> {
         head.shorthand().map(|s| s.to_string())
     } else {
         // Detached HEAD — return short OID
-        head.target()
-            .map(|oid| format!("{:.7}", oid))
+        head.target().map(|oid| format!("{:.7}", oid))
     }
 }
 
 /// Check if the working tree has uncommitted changes.
 fn is_dirty(repo: &git2::Repository) -> bool {
     let mut opts = git2::StatusOptions::new();
-    opts.include_untracked(false)
-        .include_ignored(false);
+    opts.include_untracked(false).include_ignored(false);
 
     match repo.statuses(Some(&mut opts)) {
         Ok(statuses) => !statuses.is_empty(),

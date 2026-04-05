@@ -38,10 +38,7 @@ pub async fn check_health(port: u16, endpoint: &str, timeout_ms: u64) -> HealthR
                 HealthStatus::Unhealthy
             };
 
-            debug!(
-                "Health check {}: {} ({}ms)",
-                url, status_code, latency
-            );
+            debug!("Health check {}: {} ({}ms)", url, status_code, latency);
 
             HealthResult {
                 status: health_status,

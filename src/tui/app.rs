@@ -5,7 +5,9 @@ use crate::process;
 use crate::scanner;
 use crate::tui::ui;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers,
+    },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -120,7 +122,9 @@ impl App {
 
             // Handle input
             if event::poll(tick_rate).map_err(|e| PortForgeError::TuiError(e.to_string()))? {
-                if let Event::Key(key) = event::read().map_err(|e| PortForgeError::TuiError(e.to_string()))? {
+                if let Event::Key(key) =
+                    event::read().map_err(|e| PortForgeError::TuiError(e.to_string()))?
+                {
                     self.handle_key_event(key);
                 }
             }
@@ -280,7 +284,11 @@ impl App {
                 self.show_all = !self.show_all;
                 self.set_status(format!(
                     "Showing {}",
-                    if self.show_all { "all ports" } else { "dev ports" }
+                    if self.show_all {
+                        "all ports"
+                    } else {
+                        "dev ports"
+                    }
                 ));
             }
 

@@ -6,32 +6,32 @@ pub struct Theme;
 
 impl Theme {
     // ─── Background Colors ───
-    pub const BG_PRIMARY: Color = Color::Rgb(13, 17, 23);       // #0d1117 deep navy
-    pub const BG_SURFACE: Color = Color::Rgb(22, 27, 34);       // #161b22 elevated
-    pub const BG_HIGHLIGHT: Color = Color::Rgb(33, 38, 45);     // #21262d selection
-    pub const BG_OVERLAY: Color = Color::Rgb(22, 27, 34);       // #161b22 modals
+    pub const BG_PRIMARY: Color = Color::Rgb(13, 17, 23); // #0d1117 deep navy
+    pub const BG_SURFACE: Color = Color::Rgb(22, 27, 34); // #161b22 elevated
+    pub const BG_HIGHLIGHT: Color = Color::Rgb(33, 38, 45); // #21262d selection
+    pub const BG_OVERLAY: Color = Color::Rgb(22, 27, 34); // #161b22 modals
 
     // ─── Border Colors ───
-    pub const BORDER: Color = Color::Rgb(48, 54, 61);           // #30363d
-    pub const BORDER_FOCUS: Color = Color::Rgb(88, 166, 255);   // #58a6ff
+    pub const BORDER: Color = Color::Rgb(48, 54, 61); // #30363d
+    pub const BORDER_FOCUS: Color = Color::Rgb(88, 166, 255); // #58a6ff
 
     // ─── Text Colors ───
-    pub const TEXT_PRIMARY: Color = Color::Rgb(230, 237, 243);   // #e6edf3
+    pub const TEXT_PRIMARY: Color = Color::Rgb(230, 237, 243); // #e6edf3
     pub const TEXT_SECONDARY: Color = Color::Rgb(139, 148, 158); // #8b949e
-    pub const TEXT_MUTED: Color = Color::Rgb(110, 118, 129);     // #6e7681
-    pub const TEXT_INVERSE: Color = Color::Rgb(13, 17, 23);      // #0d1117
+    pub const TEXT_MUTED: Color = Color::Rgb(110, 118, 129); // #6e7681
+    pub const TEXT_INVERSE: Color = Color::Rgb(13, 17, 23); // #0d1117
 
     // ─── Status Colors ───
-    pub const HEALTHY: Color = Color::Rgb(63, 185, 80);          // #3fb950 green
-    pub const WARNING: Color = Color::Rgb(210, 153, 34);         // #d29922 amber
-    pub const ERROR: Color = Color::Rgb(248, 81, 73);            // #f85149 red
-    pub const INFO: Color = Color::Rgb(88, 166, 255);            // #58a6ff blue
+    pub const HEALTHY: Color = Color::Rgb(63, 185, 80); // #3fb950 green
+    pub const WARNING: Color = Color::Rgb(210, 153, 34); // #d29922 amber
+    pub const ERROR: Color = Color::Rgb(248, 81, 73); // #f85149 red
+    pub const INFO: Color = Color::Rgb(88, 166, 255); // #58a6ff blue
 
     // ─── Accent Colors ───
-    pub const ACCENT_BLUE: Color = Color::Rgb(88, 166, 255);     // #58a6ff
-    pub const ACCENT_PURPLE: Color = Color::Rgb(188, 140, 255);  // #bc8cff
-    pub const ACCENT_CYAN: Color = Color::Rgb(63, 214, 207);     // #3fd6cf
-    pub const ACCENT_ORANGE: Color = Color::Rgb(219, 171, 9);    // #dbab09
+    pub const ACCENT_BLUE: Color = Color::Rgb(88, 166, 255); // #58a6ff
+    pub const ACCENT_PURPLE: Color = Color::Rgb(188, 140, 255); // #bc8cff
+    pub const ACCENT_CYAN: Color = Color::Rgb(63, 214, 207); // #3fd6cf
+    pub const ACCENT_ORANGE: Color = Color::Rgb(219, 171, 9); // #dbab09
 
     // ─── Semantic Styles ───
 
@@ -60,9 +60,7 @@ impl Theme {
     }
 
     pub fn row_alt() -> Style {
-        Style::default()
-            .fg(Self::TEXT_PRIMARY)
-            .bg(Self::BG_SURFACE)
+        Style::default().fg(Self::TEXT_PRIMARY).bg(Self::BG_SURFACE)
     }
 
     pub fn healthy() -> Style {
