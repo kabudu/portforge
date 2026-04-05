@@ -139,7 +139,7 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                 ),
                 Cell::from(entry.docker_display()).style(Theme::docker()),
                 Cell::from(entry.uptime_display()).style(Theme::muted()),
-                Cell::from(format!("{:.0}MB", entry.memory_mb)).style(Theme::muted()),
+                Cell::from(format!("{:.0}MB", entry.memory_mb.max(0.0))).style(Theme::muted()),
                 Cell::from(format!("{:.1}%", entry.cpu_percent)).style(
                     if entry.cpu_percent > 50.0 {
                         Theme::warning()
@@ -257,7 +257,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(vec![
             Span::styled("  Memory:    ", Theme::muted()),
-            Span::raw(format!("{:.1} MB", entry.memory_mb)),
+            Span::raw(format!("{:.1} MB", entry.memory_mb.max(0.0))),
         ]),
         Line::from(vec![
             Span::styled("  Status:    ", Theme::muted()),
@@ -393,7 +393,7 @@ fn render_process_tree(f: &mut Frame, area: Rect, app: &App) {
                     },
                 ),
                 Span::raw("  "),
-                Span::styled(format!("Mem: {:.1}MB", entry.memory_mb), Theme::muted()),
+                Span::styled(format!("Mem: {:.1}MB", entry.memory_mb.max(0.0)), Theme::muted()),
             ])
         })
         .collect();

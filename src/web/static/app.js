@@ -42,7 +42,7 @@ function renderDetail(entry) {
             <div class="detail-row"><span class="detail-label">PID</span><span class="detail-value">${entry.pid}</span></div>
             <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${escapeHtml(entry.process_name)}</span></div>
             <div class="detail-row"><span class="detail-label">Command</span><span class="detail-value" style="word-break: break-all;">${escapeHtml(entry.command)}</span></div>
-            <div class="detail-row"><span class="detail-label">Memory</span><span class="detail-value">${entry.memory_mb.toFixed(1)} MB</span></div>
+            <div class="detail-row"><span class="detail-label">Memory</span><span class="detail-value">${Math.max(0, entry.memory_mb).toFixed(1)} MB</span></div>
             <div class="detail-row"><span class="detail-label">CPU</span><span class="detail-value">${entry.cpu_percent.toFixed(1)}%</span></div>
         </div>`;
 

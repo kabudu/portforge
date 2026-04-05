@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Metrics** — Resolved CPU percentage reporting 0.0% by enforcing a global thread-safe state cache spanning refresh cycles.
+- **Metrics** — Prevented memory sizes formatting as negative zeros (-0.0) in aggregate floats.
+- **Docker** — Identified Docker containers correctly map natively to "Healthy" overriding default fallback.
+- **Thread Safety** — Enforced proper `Send` bound drops across Web API health-probe polling asynchronous logic.
+
 ## [0.1.0] - 2026-04-04
 
 ### Added

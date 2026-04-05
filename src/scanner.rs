@@ -24,18 +24,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
     };
     debug!("Found {} raw listeners", raw_listeners.len());
 
-    // Refresh system info for process details
-    let mut sys = System::new();
-    sys.refresh_processes_specifics(
-        ProcessesToUpdate::All,
-        true,
-        ProcessRefreshKind::nothing()
-            .with_cpu()
-            .with_memory()
-            .with_cmd(UpdateKind::Always),
-    );
-
-    // Query Docker containers (if enabled)
+    // Query Docker containers (if enabled) first so we don't hold the !Send sys mutex across await
     #[cfg(feature = "docker")]
     let docker_map = if config.general.docker_enabled {
         docker::get_container_port_map().await.unwrap_or_default()
@@ -47,76 +36,93 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 
     let mut entries: Vec<PortEntry> = Vec::new();
 
-    for listener in &raw_listeners {
-        let port = listener.socket.port();
-        let pid = listener.process.pid;
+    // Scope the !Send MutexGuard so it drops before we await health checks
+    {
+        static SYSTEM: std::sync::OnceLock<std::sync::Mutex<System>> = std::sync::OnceLock::new();
+        let mut sys = SYSTEM.get_or_init(|| std::sync::Mutex::new(System::new())).lock().unwrap();
+        
+        let is_new = sys.processes().is_empty();
 
-        let sysinfo_pid = Pid::from_u32(pid);
-        let proc_info = sys.process(sysinfo_pid);
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing()
+                .with_cpu()
+                .with_memory()
+                .with_cmd(UpdateKind::Always),
+        );
 
-        let process_name = proc_info
-            .map(|p| p.name().to_string_lossy().to_string())
-            .unwrap_or_else(|| listener.process.name.clone());
+        if is_new {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            sys.refresh_processes_specifics(
+                ProcessesToUpdate::All,
+                true,
+                ProcessRefreshKind::nothing().with_cpu(),
+            );
+        }
 
-        let command = proc_info
-            .map(|p| {
-                p.cmd()
-                    .iter()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            })
-            .unwrap_or_default();
+        for listener in &raw_listeners {
+            let port = listener.socket.port();
+            let pid = listener.process.pid;
 
-        let cwd = proc_info.and_then(|p| {
-            let cwd = p.cwd()?;
-            Some(cwd.to_path_buf())
-        });
+            let sysinfo_pid = Pid::from_u32(pid);
+            let proc_info = sys.process(sysinfo_pid);
 
-        let memory_mb = proc_info
-            .map(|p| p.memory() as f64 / 1024.0 / 1024.0)
-            .unwrap_or(0.0);
+            let process_name = proc_info
+                .map(|p| p.name().to_string_lossy().to_string())
+                .unwrap_or_else(|| listener.process.name.clone());
 
-        let cpu_percent = proc_info.map(|p| p.cpu_usage()).unwrap_or(0.0);
+            let command = proc_info
+                .map(|p| {
+                    p.cmd()
+                        .iter()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .unwrap_or_default();
 
-        let uptime_secs = proc_info.map(|p| p.run_time()).unwrap_or(0);
+            let cwd = proc_info.and_then(|p| {
+                let cwd = p.cwd()?;
+                Some(cwd.to_path_buf())
+            });
 
-        // Project detection
-        let project_info = cwd.as_ref().and_then(|cwd| project::detect_project(cwd));
+            let memory_mb = proc_info
+                .map(|p| p.memory() as f64 / 1024.0 / 1024.0)
+                .unwrap_or(0.0);
 
-        // Git info
-        let git_info = cwd.as_ref().and_then(|cwd| git::get_git_info(cwd));
+            let cpu_percent = proc_info.map(|p| p.cpu_usage()).unwrap_or(0.0);
 
-        // Docker info
-        let docker_info = docker_map.get(&port).cloned();
+            let uptime_secs = proc_info.map(|p| p.run_time()).unwrap_or(0);
 
-        // Map Protocol
-        let protocol = match listener.protocol {
-            listeners::Protocol::TCP => Protocol::Tcp,
-            listeners::Protocol::UDP => Protocol::Udp,
-        };
+            let project_info = cwd.as_ref().and_then(|cwd| project::detect_project(cwd));
+            let git_info = cwd.as_ref().and_then(|cwd| git::get_git_info(cwd));
+            let docker_info = docker_map.get(&port).cloned();
 
-        // Determine status
-        let status = determine_status(proc_info.is_some(), &project_info, &docker_info);
+            let protocol = match listener.protocol {
+                listeners::Protocol::TCP => Protocol::Tcp,
+                listeners::Protocol::UDP => Protocol::Udp,
+            };
 
-        let entry = PortEntry {
-            port,
-            protocol,
-            pid,
-            process_name,
-            command,
-            cwd,
-            memory_mb,
-            cpu_percent,
-            uptime_secs,
-            project: project_info,
-            docker: docker_info,
-            git: git_info,
-            status,
-            health_check: None,
-        };
+            let status = determine_status(proc_info.is_some(), &project_info, &docker_info);
 
-        entries.push(entry);
+            entries.push(PortEntry {
+                port,
+                protocol,
+                pid,
+                process_name,
+                command,
+                cwd,
+                memory_mb,
+                cpu_percent,
+                uptime_secs,
+                project: project_info,
+                docker: docker_info,
+                git: git_info,
+                status,
+                health_check: None,
+            });
+        }
     }
 
     // Remove duplicates by port (keep the first occurrence)
@@ -144,12 +150,12 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 fn determine_status(
     process_exists: bool,
     project: &Option<ProjectInfo>,
-    _docker: &Option<DockerInfo>,
+    docker: &Option<DockerInfo>,
 ) -> Status {
     if !process_exists {
         return Status::Zombie;
     }
-    if project.is_some() {
+    if project.is_some() || docker.is_some() {
         return Status::Healthy;
     }
     Status::Unknown
