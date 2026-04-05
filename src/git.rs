@@ -1,13 +1,48 @@
 use crate::models::GitInfo;
 use std::path::Path;
+use std::process::Command;
 use tracing::debug;
 
 /// Get git branch and dirty status for a directory.
 pub fn get_git_info(dir: &Path) -> Option<GitInfo> {
-    let repo = git2::Repository::discover(dir).ok()?;
+    // Check if in git repo and get branch name
+    let branch_output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(dir)
+        .output()
+        .ok()?;
 
-    let branch = get_branch_name(&repo).unwrap_or_else(|| "HEAD".to_string());
-    let dirty = is_dirty(&repo);
+    if !branch_output.status.success() {
+        return None;
+    }
+
+    let branch = String::from_utf8(branch_output.stdout)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    let branch = if branch == "HEAD" {
+        // Detached HEAD, get short hash
+        Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .current_dir(dir)
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| "HEAD".to_string())
+    } else {
+        branch
+    };
+
+    // Check if dirty
+    let dirty_output = Command::new("git")
+        .args(["status", "--porcelain", "--untracked-files=no"])
+        .current_dir(dir)
+        .output()
+        .ok()?;
+
+    let dirty = !dirty_output.stdout.is_empty();
 
     debug!(
         "Git info for {}: branch={}, dirty={}",
@@ -17,29 +52,6 @@ pub fn get_git_info(dir: &Path) -> Option<GitInfo> {
     );
 
     Some(GitInfo { branch, dirty })
-}
-
-/// Get the current branch name.
-fn get_branch_name(repo: &git2::Repository) -> Option<String> {
-    let head = repo.head().ok()?;
-
-    if head.is_branch() {
-        head.shorthand().map(|s| s.to_string())
-    } else {
-        // Detached HEAD — return short OID
-        head.target().map(|oid| format!("{:.7}", oid))
-    }
-}
-
-/// Check if the working tree has uncommitted changes.
-fn is_dirty(repo: &git2::Repository) -> bool {
-    let mut opts = git2::StatusOptions::new();
-    opts.include_untracked(false).include_ignored(false);
-
-    match repo.statuses(Some(&mut opts)) {
-        Ok(statuses) => !statuses.is_empty(),
-        Err(_) => false,
-    }
 }
 
 #[cfg(test)]

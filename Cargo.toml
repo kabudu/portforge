@@ -31,8 +31,7 @@ listeners = "0.5"
 bollard = { version = "0.18", optional = true }
 
 # Project detection — manual heuristics (project-detect may not be on crates.io)
-# git
-git2 = { version = "0.19", default-features = false }
+
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
