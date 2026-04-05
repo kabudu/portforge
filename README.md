@@ -44,7 +44,11 @@ Download the latest binary for your platform from [Releases](https://github.com/
 
 ```bash
 # macOS / Linux
-curl -L https://github.com/kabudu/portforge/releases/latest/download/portforge-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).tar.gz | tar xz
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+[ "$OS" = "darwin" ] && OS="macos"
+ARCH=$(uname -m)
+[ "$ARCH" = "arm64" ] && ARCH="aarch64"
+curl -L "https://github.com/kabudu/portforge/releases/latest/download/portforge-${OS}-${ARCH}.tar.gz" | tar xz
 sudo mv portforge /usr/local/bin/
 ```
 
