@@ -125,7 +125,7 @@ impl App {
                 if let Event::Key(key) =
                     event::read().map_err(|e| PortForgeError::TuiError(e.to_string()))?
                 {
-                    self.handle_key_event(key);
+                    self.handle_key_event(key).await;
                 }
             }
 
@@ -222,7 +222,7 @@ impl App {
     }
 
     /// Handle keyboard input.
-    fn handle_key_event(&mut self, key: KeyEvent) {
+    async fn handle_key_event(&mut self, key: KeyEvent) {
         // Global: Ctrl+C always quits
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             self.should_quit = true;
@@ -230,16 +230,16 @@ impl App {
         }
 
         match self.view_mode {
-            ViewMode::Table => self.handle_table_keys(key),
-            ViewMode::Detail => self.handle_detail_keys(key),
-            ViewMode::ProcessTree => self.handle_tree_keys(key),
-            ViewMode::Search => self.handle_search_keys(key),
-            ViewMode::Help => self.handle_help_keys(key),
-            ViewMode::KillConfirm => self.handle_kill_confirm_keys(key),
+            ViewMode::Table => self.handle_table_keys(key).await,
+            ViewMode::Detail => self.handle_detail_keys(key).await,
+            ViewMode::ProcessTree => self.handle_tree_keys(key).await,
+            ViewMode::Search => self.handle_search_keys(key).await,
+            ViewMode::Help => self.handle_help_keys(key).await,
+            ViewMode::KillConfirm => self.handle_kill_confirm_keys(key).await,
         }
     }
 
-    fn handle_table_keys(&mut self, key: KeyEvent) {
+    async fn handle_table_keys(&mut self, key: KeyEvent) {
         match key.code {
             // Quit
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
@@ -289,7 +289,7 @@ impl App {
             KeyCode::Char('?') => {
                 self.view_mode = ViewMode::Help;
             }
-            KeyCode::Char('T') => {
+            KeyCode::Char('a') | KeyCode::Char('A') => {
                 self.show_all = !self.show_all;
                 self.set_status(format!(
                     "Showing {}",
@@ -299,6 +299,7 @@ impl App {
                         "dev ports"
                     }
                 ));
+                self.refresh_data().await;
             }
 
             // Sorting
@@ -314,13 +315,14 @@ impl App {
             // Refresh
             KeyCode::Char('r') => {
                 self.set_status("Refreshing...".to_string());
+                self.refresh_data().await;
             }
 
             _ => {}
         }
     }
 
-    fn handle_search_keys(&mut self, key: KeyEvent) {
+    async fn handle_search_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Esc => {
                 self.search_query.clear();
@@ -342,7 +344,7 @@ impl App {
         }
     }
 
-    fn handle_detail_keys(&mut self, key: KeyEvent) {
+    async fn handle_detail_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') | KeyCode::Backspace => {
                 self.view_mode = ViewMode::Table;
@@ -360,7 +362,7 @@ impl App {
         }
     }
 
-    fn handle_tree_keys(&mut self, key: KeyEvent) {
+    async fn handle_tree_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') | KeyCode::Backspace => {
                 self.view_mode = ViewMode::Table;
@@ -369,7 +371,7 @@ impl App {
         }
     }
 
-    fn handle_help_keys(&mut self, key: KeyEvent) {
+    async fn handle_help_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') => {
                 self.view_mode = ViewMode::Table;
@@ -378,7 +380,7 @@ impl App {
         }
     }
 
-    fn handle_kill_confirm_keys(&mut self, key: KeyEvent) {
+    async fn handle_kill_confirm_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Char('y') | KeyCode::Char('Y') => {
                 if let Some(entry) = self.selected_entry().cloned() {
@@ -388,6 +390,7 @@ impl App {
                                 "✓ Killed PID {} on port {}",
                                 entry.pid, entry.port
                             ));
+                            self.refresh_data().await;
                         }
                         Err(e) => {
                             self.set_status(format!("✗ Failed to kill: {}", e));
@@ -404,6 +407,7 @@ impl App {
                                 "✓ Force killed PID {} on port {}",
                                 entry.pid, entry.port
                             ));
+                            self.refresh_data().await;
                         }
                         Err(e) => {
                             self.set_status(format!("✗ Failed to kill: {}", e));
