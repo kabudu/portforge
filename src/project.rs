@@ -89,22 +89,19 @@ fn detect_in_dir(dir: &Path) -> Option<ProjectInfo> {
     for (manifest, kind, frameworks) in &detectors {
         let manifest_path = if manifest.starts_with('*') {
             // Glob pattern — check if any matching file exists
-            match std::fs::read_dir(dir) { Ok(entries) => {
-                let ext = manifest.trim_start_matches('*');
-                let found = entries
-                    .filter_map(|e| e.ok())
-                    .find(|e| e.file_name().to_string_lossy().ends_with(ext));
-                found.map(|e| e.path())
-            } _ => {
-                None
-            }}
+            match std::fs::read_dir(dir) {
+                Ok(entries) => {
+                    let ext = manifest.trim_start_matches('*');
+                    let found = entries
+                        .filter_map(|e| e.ok())
+                        .find(|e| e.file_name().to_string_lossy().ends_with(ext));
+                    found.map(|e| e.path())
+                }
+                _ => None,
+            }
         } else {
             let path = dir.join(manifest);
-            if path.exists() {
-                Some(path)
-            } else {
-                None
-            }
+            if path.exists() { Some(path) } else { None }
         };
 
         if let Some(found_path) = manifest_path {

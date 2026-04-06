@@ -5,7 +5,7 @@ use crate::web::assets::StaticAssets;
 use crate::web::server::SharedState;
 use axum::{
     extract::{Path, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{Html, IntoResponse, Json},
 };
 use serde::Serialize;
@@ -21,7 +21,12 @@ pub async fn dashboard_page(State(state): State<SharedState>) -> Html<String> {
         .filter(|e| e.status == Status::Healthy)
         .count();
     let docker_count = state.entries.iter().filter(|e| e.docker.is_some()).count();
-    let total_mem: f64 = state.entries.iter().map(|e| e.memory_mb).sum::<f64>().max(0.0);
+    let total_mem: f64 = state
+        .entries
+        .iter()
+        .map(|e| e.memory_mb)
+        .sum::<f64>()
+        .max(0.0);
 
     let html = format!(
         r#"<!DOCTYPE html>
@@ -109,7 +114,12 @@ pub async fn partial_stats(State(state): State<SharedState>) -> Html<String> {
         .filter(|e| e.status == Status::Healthy)
         .count();
     let docker_count = state.entries.iter().filter(|e| e.docker.is_some()).count();
-    let total_mem: f64 = state.entries.iter().map(|e| e.memory_mb).sum::<f64>().max(0.0);
+    let total_mem: f64 = state
+        .entries
+        .iter()
+        .map(|e| e.memory_mb)
+        .sum::<f64>()
+        .max(0.0);
     Html(render_stats_cards(total, healthy, docker_count, total_mem))
 }
 
@@ -163,7 +173,12 @@ pub async fn api_stats(State(state): State<SharedState>) -> Json<StatsResponse> 
             .filter(|e| e.status == Status::Healthy)
             .count(),
         docker: state.entries.iter().filter(|e| e.docker.is_some()).count(),
-        memory_mb: state.entries.iter().map(|e| e.memory_mb).sum::<f64>().max(0.0),
+        memory_mb: state
+            .entries
+            .iter()
+            .map(|e| e.memory_mb)
+            .sum::<f64>()
+            .max(0.0),
     })
 }
 

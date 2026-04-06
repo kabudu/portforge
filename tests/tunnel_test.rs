@@ -18,7 +18,7 @@ fn test_detect_cloudflared_basic() {
 fn test_detect_no_tunnel() {
     let tunnel = detect_tunnel("node", "node server.js");
     assert!(tunnel.is_none());
-    
+
     let tunnel2 = detect_tunnel("python", "python app.py");
     assert!(tunnel2.is_none());
 }

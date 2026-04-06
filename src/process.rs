@@ -6,11 +6,11 @@ use tracing::{info, warn};
 /// Kill the process listening on the given port with retry logic.
 pub fn kill_process(entry: &PortEntry, force: bool) -> Result<()> {
     let pid = Pid::from_u32(entry.pid);
-    
+
     // Retry logic with exponential backoff
     let max_retries = 3;
     let mut retries = 0;
-    
+
     while retries < max_retries {
         let killed = {
             let mut sys = System::new();
@@ -30,7 +30,7 @@ pub fn kill_process(entry: &PortEntry, force: bool) -> Result<()> {
 
                 if process.kill_with(signal).unwrap_or(false) {
                     info!("Successfully sent {:?} to PID {}", signal, entry.pid);
-                    
+
                     // Verify process is gone
                     drop(sys);
                     std::thread::sleep(std::time::Duration::from_millis(50));
@@ -39,7 +39,7 @@ pub fn kill_process(entry: &PortEntry, force: bool) -> Result<()> {
                     if verify_sys.process(pid).is_none() {
                         return Ok(());
                     }
-                    
+
                     // Process still exists, might need force kill
                     if !force && retries < max_retries - 1 {
                         warn!("SIGTERM failed for PID {}, trying SIGKILL", entry.pid);
@@ -69,13 +69,13 @@ pub fn kill_process(entry: &PortEntry, force: bool) -> Result<()> {
                 return Ok(());
             }
         };
-        
+
         retries += 1;
         if retries < max_retries && !killed {
             std::thread::sleep(std::time::Duration::from_millis(100 * retries));
         }
     }
-    
+
     Err(PortForgeError::ProcessError(format!(
         "Failed to kill PID {} after {} attempts",
         entry.pid, max_retries

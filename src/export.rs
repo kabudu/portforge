@@ -81,11 +81,7 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
             .unwrap_or("");
         let git_branch = e.git.as_ref().map(|g| g.branch.as_str()).unwrap_or("");
         let git_dirty = e.git.as_ref().map(|g| g.dirty).unwrap_or(false);
-        let tunnel = e
-            .tunnel
-            .as_ref()
-            .map(|t| t.kind.as_str())
-            .unwrap_or("");
+        let tunnel = e.tunnel.as_ref().map(|t| t.kind.as_str()).unwrap_or("");
         let docker = e
             .docker
             .as_ref()

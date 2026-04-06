@@ -3,11 +3,11 @@ use crate::tui::app::{App, ViewMode};
 use crate::tui::theme::Theme;
 use crate::tui::widgets;
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Cell, Paragraph, Row, Table, TableState, Wrap},
-    Frame,
 };
 
 /// Main render function — dispatches to the current view.
@@ -396,7 +396,10 @@ fn render_process_tree(f: &mut Frame, area: Rect, app: &App) {
                     },
                 ),
                 Span::raw("  "),
-                Span::styled(format!("Mem: {:.1}MB", entry.memory_mb.max(0.0)), Theme::muted()),
+                Span::styled(
+                    format!("Mem: {:.1}MB", entry.memory_mb.max(0.0)),
+                    Theme::muted(),
+                ),
             ])
         })
         .collect();

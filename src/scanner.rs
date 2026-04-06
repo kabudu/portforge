@@ -46,7 +46,10 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
         match docker::get_container_port_map().await {
             Ok(map) => map,
             Err(e) => {
-                warn!("Docker integration unavailable: {}. Disabling Docker info for this scan.", e);
+                warn!(
+                    "Docker integration unavailable: {}. Disabling Docker info for this scan.",
+                    e
+                );
                 HashMap::new()
             }
         }
@@ -61,8 +64,11 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
     // Scope the !Send MutexGuard so it drops before we await health checks
     {
         static SYSTEM: std::sync::OnceLock<std::sync::Mutex<System>> = std::sync::OnceLock::new();
-        let mut sys = SYSTEM.get_or_init(|| std::sync::Mutex::new(System::new())).lock().unwrap();
-        
+        let mut sys = SYSTEM
+            .get_or_init(|| std::sync::Mutex::new(System::new()))
+            .lock()
+            .unwrap();
+
         let is_new = sys.processes().is_empty();
 
         sys.refresh_processes_specifics(
@@ -71,6 +77,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
             ProcessRefreshKind::nothing()
                 .with_cpu()
                 .with_memory()
+                .with_cwd(UpdateKind::Always)
                 .with_cmd(UpdateKind::Always),
         );
 
@@ -79,7 +86,9 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
             sys.refresh_processes_specifics(
                 ProcessesToUpdate::All,
                 true,
-                ProcessRefreshKind::nothing().with_cpu(),
+                ProcessRefreshKind::nothing()
+                    .with_cpu()
+                    .with_cwd(UpdateKind::Always),
             );
         }
 
@@ -104,10 +113,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
                 })
                 .unwrap_or_default();
 
-            let cwd = proc_info.and_then(|p| {
-                let cwd = p.cwd()?;
-                Some(cwd.to_path_buf())
-            });
+            let cwd = proc_info.and_then(|p| p.cwd().map(|cwd| cwd.to_path_buf()));
 
             let memory_mb = proc_info
                 .map(|p| p.memory() as f64 / 1024.0 / 1024.0)
@@ -171,7 +177,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 }
 
 /// Determines the status of a port entry based on process existence and enrichment data.
-/// 
+///
 /// Returns `Zombie` if the process doesn't exist, `Healthy` if it has project/Docker info,
 /// otherwise `Unknown`.
 fn determine_status(
@@ -192,7 +198,7 @@ fn determine_status(
 async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) {
     let timeout_ms = config.health.timeout_ms;
     let max_concurrent = config.general.max_concurrent_health_checks;
-    
+
     // Create a semaphore to limit concurrent health checks
     let semaphore = Arc::new(Semaphore::new(max_concurrent));
     let mut handles = Vec::new();
@@ -215,7 +221,7 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
 
         let timeout = timeout_ms;
         let sem_permit = semaphore.clone().acquire_owned().await.unwrap();
-        
+
         handles.push(tokio::spawn(async move {
             let result = health::check_health(port, &endpoint, timeout).await;
             drop(sem_permit); // Release permit when done
@@ -231,7 +237,9 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
                 if let Some(ref hc) = entry.health_check {
                     if hc.status == HealthStatus::Healthy && entry.status == Status::Unknown {
                         entry.status = Status::Healthy;
-                    } else if hc.status == HealthStatus::Unhealthy && entry.status == Status::Healthy {
+                    } else if hc.status == HealthStatus::Unhealthy
+                        && entry.status == Status::Healthy
+                    {
                         // Mark as warning if health check fails but process exists
                         entry.status = Status::Warning("Health check failed".to_string());
                     }

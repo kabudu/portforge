@@ -2,10 +2,10 @@ use crate::models::PortEntry;
 use crate::tui::app::{App, ViewMode};
 use crate::tui::theme::Theme;
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
-    Frame,
 };
 
 /// Render the application header bar.

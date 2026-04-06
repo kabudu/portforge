@@ -18,12 +18,9 @@ pub fn detect_tunnel(process_name: &str, command: &str) -> Option<TunnelInfo> {
     for (process_keyword, kind) in TUNNEL_PROCESSES {
         if name_lower.contains(process_keyword) || cmd_lower.contains(process_keyword) {
             // Try to extract public URL from command
-            let public_url = extract_tunnel_url(&cmd_lower, *kind);
-            
-            debug!(
-                "Detected tunnel: {} with URL {:?}",
-                kind, public_url
-            );
+            let public_url = extract_tunnel_url(&cmd_lower, kind);
+
+            debug!("Detected tunnel: {} with URL {:?}", kind, public_url);
 
             return Some(TunnelInfo {
                 kind: kind.to_string(),
@@ -42,7 +39,7 @@ fn extract_tunnel_url(command: &str, kind: &str) -> Option<String> {
             // ngrok http <port> or ngrok http --url <url>
             if let Some(idx) = command.find("--url") {
                 let after = &command[idx + 5..];
-                let url = after.trim_start_matches(|c| c == ' ' || c == '=');
+                let url = after.trim_start_matches([' ', '=']);
                 // Get until next space or end
                 url.split_whitespace().next().map(String::from)
             } else if command.contains("http ") {
@@ -56,7 +53,7 @@ fn extract_tunnel_url(command: &str, kind: &str) -> Option<String> {
             // cloudflared tunnel --url <url>
             if let Some(idx) = command.find("--url") {
                 let after = &command[idx + 5..];
-                let url = after.trim_start_matches(|c| c == ' ' || c == '=');
+                let url = after.trim_start_matches([' ', '=']);
                 url.split_whitespace().next().map(String::from)
             } else {
                 None
@@ -66,12 +63,11 @@ fn extract_tunnel_url(command: &str, kind: &str) -> Option<String> {
             // lt --port <port> --subdomain <name>
             if let Some(idx) = command.find("--subdomain") {
                 let after = &command[idx + 11..];
-                let subdomain = after.trim_start_matches(|c| c == ' ' || c == '=');
-                if let Some(sub) = subdomain.split_whitespace().next() {
-                    Some(format!("https://{}.loca.lt", sub))
-                } else {
-                    None
-                }
+                let subdomain = after.trim_start_matches([' ', '=']);
+                subdomain
+                    .split_whitespace()
+                    .next()
+                    .map(|sub| format!("https://{}.loca.lt", sub))
             } else {
                 None
             }
@@ -128,10 +124,7 @@ mod tests {
 
     #[test]
     fn test_detect_ssh_tunnel() {
-        let tunnel = detect_tunnel(
-            "ssh",
-            "ssh -R 8080:localhost:3000 user@remote.server.com",
-        );
+        let tunnel = detect_tunnel("ssh", "ssh -R 8080:localhost:3000 user@remote.server.com");
         assert!(tunnel.is_some());
         let info = tunnel.unwrap();
         assert_eq!(info.kind, "ssh");
@@ -157,6 +150,9 @@ mod tests {
     fn test_extract_url_from_ngrok_custom_url() {
         let tunnel = detect_tunnel("ngrok", "ngrok http --url https://abc123.ngrok.io 3000");
         assert!(tunnel.is_some());
-        assert_eq!(tunnel.unwrap().public_url, Some("https://abc123.ngrok.io".to_string()));
+        assert_eq!(
+            tunnel.unwrap().public_url,
+            Some("https://abc123.ngrok.io".to_string())
+        );
     }
 }

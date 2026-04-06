@@ -2,8 +2,8 @@ use crate::config::PortForgeConfig;
 use crate::error::{PortForgeError, Result};
 use crate::web::handlers;
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
