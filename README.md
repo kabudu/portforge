@@ -2,7 +2,7 @@
 
 <img src="docs/assets/logo.png" alt="PortForge logo" width="120" />
 
-# ⚡ PortForge
+# PortForge
 
 **Modern cross-platform port inspector & manager for developers**
 
