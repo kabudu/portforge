@@ -15,6 +15,8 @@ struct PortRow {
     project: String,
     #[tabled(rename = "GIT")]
     git: String,
+    #[tabled(rename = "TUNNEL")]
+    tunnel: String,
     #[tabled(rename = "DOCKER")]
     docker: String,
     #[tabled(rename = "UPTIME")]
@@ -35,6 +37,7 @@ impl From<&PortEntry> for PortRow {
             process: e.process_name.clone(),
             project: e.project_display(),
             git: e.git_display(),
+            tunnel: e.tunnel_display(),
             docker: e.docker_display(),
             uptime: e.uptime_display(),
             memory: format!("{:.1}MB", e.memory_mb),
@@ -67,7 +70,7 @@ pub fn to_json(entries: &[PortEntry], pretty: bool) -> Result<String> {
 /// Export entries as CSV string.
 pub fn to_csv(entries: &[PortEntry]) -> String {
     let mut output = String::new();
-    output.push_str("port,protocol,pid,process,project,framework,git_branch,git_dirty,docker,uptime_secs,memory_mb,cpu_percent,status\n");
+    output.push_str("port,protocol,pid,process,project,framework,git_branch,git_dirty,tunnel,docker,uptime_secs,memory_mb,cpu_percent,status\n");
 
     for e in entries {
         let project = e.project.as_ref().map(|p| p.kind.as_str()).unwrap_or("");
@@ -78,6 +81,11 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
             .unwrap_or("");
         let git_branch = e.git.as_ref().map(|g| g.branch.as_str()).unwrap_or("");
         let git_dirty = e.git.as_ref().map(|g| g.dirty).unwrap_or(false);
+        let tunnel = e
+            .tunnel
+            .as_ref()
+            .map(|t| t.kind.as_str())
+            .unwrap_or("");
         let docker = e
             .docker
             .as_ref()
@@ -93,7 +101,7 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
         };
 
         output.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{:.1},{:.1},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{:.1},{:.1},{}\n",
             e.port,
             e.protocol,
             e.pid,
@@ -102,6 +110,7 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
             escape_csv(framework),
             escape_csv(git_branch),
             git_dirty,
+            escape_csv(tunnel),
             escape_csv(docker),
             e.uptime_secs,
             e.memory_mb,

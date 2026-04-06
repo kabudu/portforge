@@ -195,6 +195,7 @@ impl App {
                         || e.process_name.to_lowercase().contains(&query)
                         || e.project_display().to_lowercase().contains(&query)
                         || e.git_display().to_lowercase().contains(&query)
+                        || e.tunnel_display().to_lowercase().contains(&query)
                         || e.docker_display().to_lowercase().contains(&query)
                         || e.command.to_lowercase().contains(&query)
                 })
@@ -246,13 +247,21 @@ impl App {
             // Navigation
             KeyCode::Char('j') | KeyCode::Down => self.move_selection(1),
             KeyCode::Char('k') | KeyCode::Up => self.move_selection(-1),
-            KeyCode::Char('g') => self.selected = 0,
+            KeyCode::Char('g') => {
+                self.selected = 0;
+                self.table_scroll_offset = 0;
+            }
             KeyCode::Char('G') => {
                 self.selected = self.filtered_entries.len().saturating_sub(1);
+                self.table_scroll_offset = self.selected.saturating_sub(10);
             }
-            KeyCode::Home => self.selected = 0,
+            KeyCode::Home => {
+                self.selected = 0;
+                self.table_scroll_offset = 0;
+            }
             KeyCode::End => {
                 self.selected = self.filtered_entries.len().saturating_sub(1);
+                self.table_scroll_offset = self.selected.saturating_sub(10);
             }
             KeyCode::PageDown => self.move_selection(20),
             KeyCode::PageUp => self.move_selection(-20),
@@ -280,7 +289,7 @@ impl App {
             KeyCode::Char('?') => {
                 self.view_mode = ViewMode::Help;
             }
-            KeyCode::Char('a') => {
+            KeyCode::Char('T') => {
                 self.show_all = !self.show_all;
                 self.set_status(format!(
                     "Showing {}",
@@ -418,8 +427,17 @@ impl App {
 
         if delta > 0 {
             self.selected = (self.selected + delta as usize).min(len - 1);
+            // Auto-scroll when selection goes below visible area
+            let visible_rows = 10; // Approximate visible rows
+            if self.selected > self.table_scroll_offset + visible_rows {
+                self.table_scroll_offset = self.selected - visible_rows;
+            }
         } else {
             self.selected = self.selected.saturating_sub((-delta) as usize);
+            // Scroll up when selection moves above visible area
+            if self.selected < self.table_scroll_offset {
+                self.table_scroll_offset = self.selected;
+            }
         }
     }
 

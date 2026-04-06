@@ -96,6 +96,7 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
         ("Process", SortCol::Process),
         ("Project", SortCol::Project),
         ("Git", SortCol::Git),
+        ("Tunnel", SortCol::Tunnel),
         ("Docker", SortCol::Docker),
         ("Uptime", SortCol::Uptime),
         ("Mem", SortCol::Mem),
@@ -137,6 +138,7 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                         Theme::git_clean()
                     },
                 ),
+                Cell::from(entry.tunnel_display()).style(Theme::tunnel()),
                 Cell::from(entry.docker_display()).style(Theme::docker()),
                 Cell::from(entry.uptime_display()).style(Theme::muted()),
                 Cell::from(format!("{:.0}MB", entry.memory_mb.max(0.0))).style(Theme::muted()),
@@ -168,8 +170,9 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(7),  // Port
             Constraint::Length(8),  // PID
             Constraint::Length(15), // Process
-            Constraint::Min(18),    // Project
-            Constraint::Length(14), // Git
+            Constraint::Min(16),    // Project
+            Constraint::Length(12), // Git
+            Constraint::Length(22), // Tunnel
             Constraint::Length(14), // Docker
             Constraint::Length(9),  // Uptime
             Constraint::Length(8),  // Mem
@@ -416,6 +419,7 @@ enum SortCol {
     Process,
     Project,
     Git,
+    Tunnel,
     Docker,
     Uptime,
     Mem,

@@ -89,7 +89,7 @@ pub fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
                 Span::styled(" search  ", Theme::muted()),
                 Span::styled("t", Theme::key_hint()),
                 Span::styled(" tree  ", Theme::muted()),
-                Span::styled("a", Theme::key_hint()),
+                Span::styled("T", Theme::key_hint()),
                 Span::styled(" all  ", Theme::muted()),
                 Span::styled("?", Theme::key_hint()),
                 Span::styled(" help  ", Theme::muted()),
@@ -165,7 +165,7 @@ pub fn render_help_overlay(f: &mut Frame, area: Rect) {
             Span::styled("Search / filter", Theme::muted()),
         ]),
         Line::from(vec![
-            Span::styled("    a          ", Theme::key_hint()),
+            Span::styled("    T          ", Theme::key_hint()),
             Span::styled("Toggle all / dev ports", Theme::muted()),
         ]),
         Line::from(""),

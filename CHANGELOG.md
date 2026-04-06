@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Tunnel Detection** — New `tunnel.rs` module for detecting ngrok, cloudflared, localtunnel, and SSH reverse tunnels with public URL extraction.
+- **TUI Scrolling** — Implemented table auto-scroll and manual navigation (Home/End/g/G) using `table_scroll_offset`.
+- **Tunnel Column** — Added dedicated "Tunnel" column to both the TUI dashboard and tabular exports (CSV/Table).
+
+### Improved
+
+- **Health Checks** — Added concurrency limiting via `tokio::sync::Semaphore` to prevent resource exhaustion during scans.
+- **Docker Integration** — Replaced silent fallback/panics with proper warning logs when the Docker daemon is unreachable.
+- **Kill Process** — Re-architected `kill_process` with exponential backoff retries and post-signal existence verification.
+- **Tests** — Expanded test coverage by 22 cases across scanner, models, process, and tunnel logic (51 total tests).
+- **Documentation** — Added comprehensive doc-comments for core scanning and status determination functions.
+
 ### Fixed
 
 - **Metrics** — Resolved CPU percentage reporting 0.0% by enforcing a global thread-safe state cache spanning refresh cycles.

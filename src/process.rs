@@ -3,47 +3,83 @@ use crate::models::PortEntry;
 use sysinfo::{Pid, Signal, System};
 use tracing::{info, warn};
 
-/// Kill the process listening on the given port.
+/// Kill the process listening on the given port with retry logic.
 pub fn kill_process(entry: &PortEntry, force: bool) -> Result<()> {
     let pid = Pid::from_u32(entry.pid);
-    let mut sys = System::new();
-    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    
+    // Retry logic with exponential backoff
+    let max_retries = 3;
+    let mut retries = 0;
+    
+    while retries < max_retries {
+        let killed = {
+            let mut sys = System::new();
+            sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
-    if let Some(process) = sys.process(pid) {
-        let signal = if force {
-            info!("Force killing PID {} (port {})", entry.pid, entry.port);
-            Signal::Kill
-        } else {
-            info!(
-                "Gracefully stopping PID {} (port {})",
-                entry.pid, entry.port
-            );
-            Signal::Term
-        };
+            if let Some(process) = sys.process(pid) {
+                let signal = if force {
+                    info!("Force killing PID {} (port {})", entry.pid, entry.port);
+                    Signal::Kill
+                } else {
+                    info!(
+                        "Gracefully stopping PID {} (port {})",
+                        entry.pid, entry.port
+                    );
+                    Signal::Term
+                };
 
-        if process.kill_with(signal).unwrap_or(false) {
-            info!("Successfully sent {:?} to PID {}", signal, entry.pid);
-            Ok(())
-        } else {
-            // Fallback: try SIGKILL if Term didn't work
-            if !force {
-                warn!("SIGTERM failed for PID {}, trying SIGKILL", entry.pid);
-                if process.kill_with(Signal::Kill).unwrap_or(false) {
-                    info!("Successfully killed PID {} with SIGKILL", entry.pid);
-                    return Ok(());
+                if process.kill_with(signal).unwrap_or(false) {
+                    info!("Successfully sent {:?} to PID {}", signal, entry.pid);
+                    
+                    // Verify process is gone
+                    drop(sys);
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    let mut verify_sys = System::new();
+                    verify_sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                    if verify_sys.process(pid).is_none() {
+                        return Ok(());
+                    }
+                    
+                    // Process still exists, might need force kill
+                    if !force && retries < max_retries - 1 {
+                        warn!("SIGTERM failed for PID {}, trying SIGKILL", entry.pid);
+                        let mut kill_sys = System::new();
+                        kill_sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                        if let Some(proc) = kill_sys.process(pid) {
+                            if proc.kill_with(Signal::Kill).unwrap_or(false) {
+                                info!("Successfully killed PID {} with SIGKILL", entry.pid);
+                                return Ok(());
+                            }
+                        }
+                    } else if force {
+                        return Err(PortForgeError::ProcessError(format!(
+                            "Failed to kill PID {} even with SIGKILL",
+                            entry.pid
+                        )));
+                    }
+                    true
+                } else {
+                    // Failed to send signal
+                    warn!("Failed to send signal to PID {}", entry.pid);
+                    false
                 }
+            } else {
+                // Process no longer exists (race condition handled)
+                info!("PID {} already exited", entry.pid);
+                return Ok(());
             }
-            Err(PortForgeError::ProcessError(format!(
-                "Failed to kill PID {}",
-                entry.pid
-            )))
+        };
+        
+        retries += 1;
+        if retries < max_retries && !killed {
+            std::thread::sleep(std::time::Duration::from_millis(100 * retries));
         }
-    } else {
-        Err(PortForgeError::ProcessError(format!(
-            "Process with PID {} not found",
-            entry.pid
-        )))
     }
+    
+    Err(PortForgeError::ProcessError(format!(
+        "Failed to kill PID {} after {} attempts",
+        entry.pid, max_retries
+    )))
 }
 
 /// Find and clean orphaned/zombie processes that are listening on ports.

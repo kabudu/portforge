@@ -142,6 +142,7 @@ fn create_test_entry(port: u16, name: &str, uptime: u64) -> PortEntry {
         project: None,
         docker: None,
         git: None,
+        tunnel: None,
         status: Status::Unknown,
         health_check: None,
     }

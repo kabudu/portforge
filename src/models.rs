@@ -17,6 +17,7 @@ pub struct PortEntry {
     pub project: Option<ProjectInfo>,
     pub docker: Option<DockerInfo>,
     pub git: Option<GitInfo>,
+    pub tunnel: Option<TunnelInfo>,
     pub status: Status,
     pub health_check: Option<HealthResult>,
 }
@@ -68,6 +69,20 @@ impl PortEntry {
             None => String::from("—"),
         }
     }
+
+    /// Returns a display string for the tunnel column.
+    pub fn tunnel_display(&self) -> String {
+        match &self.tunnel {
+            Some(t) => {
+                if let Some(url) = &t.public_url {
+                    format!("{} → {}", t.kind, url)
+                } else {
+                    t.kind.clone()
+                }
+            }
+            None => String::from("—"),
+        }
+    }
 }
 
 /// Network protocol.
@@ -109,6 +124,15 @@ pub struct DockerInfo {
 pub struct GitInfo {
     pub branch: String,
     pub dirty: bool,
+}
+
+/// Tunnel service information (ngrok, cloudflared, etc.).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TunnelInfo {
+    /// Type of tunnel service (ngrok, cloudflared, localtunnel)
+    pub kind: String,
+    /// Public URL if available
+    pub public_url: Option<String>,
 }
 
 /// Health check result.

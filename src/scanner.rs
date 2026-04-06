@@ -6,11 +6,27 @@ use crate::git;
 use crate::health;
 use crate::models::*;
 use crate::project;
+use crate::tunnel;
 use std::collections::HashMap;
+use std::sync::Arc;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+use tokio::sync::Semaphore;
 use tracing::{debug, warn};
 
-/// Scan all listening ports and enrich with metadata.
+/// Scans all listening ports and enriches them with metadata including:
+/// - Process information (PID, name, command, CPU/memory usage)
+/// - Project detection (framework, language, version)
+/// - Git repository status (branch, dirty state)
+/// - Docker container mapping
+/// - Tunnel service detection (ngrok, cloudflared, etc.)
+/// - Health check results
+///
+/// # Arguments
+/// * `config` - PortForge configuration settings
+/// * `show_all` - If true, show all ports; if false, filter to dev projects only
+///
+/// # Returns
+/// A vector of `PortEntry` structs containing enriched port data
 pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<PortEntry>> {
     debug!("Starting port scan...");
 
@@ -27,7 +43,13 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
     // Query Docker containers (if enabled) first so we don't hold the !Send sys mutex across await
     #[cfg(feature = "docker")]
     let docker_map = if config.general.docker_enabled {
-        docker::get_container_port_map().await.unwrap_or_default()
+        match docker::get_container_port_map().await {
+            Ok(map) => map,
+            Err(e) => {
+                warn!("Docker integration unavailable: {}. Disabling Docker info for this scan.", e);
+                HashMap::new()
+            }
+        }
     } else {
         HashMap::new()
     };
@@ -98,6 +120,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
             let project_info = cwd.as_ref().and_then(|cwd| project::detect_project(cwd));
             let git_info = cwd.as_ref().and_then(|cwd| git::get_git_info(cwd));
             let docker_info = docker_map.get(&port).cloned();
+            let tunnel_info = tunnel::detect_tunnel(&process_name, &command);
 
             let protocol = match listener.protocol {
                 listeners::Protocol::TCP => Protocol::Tcp,
@@ -119,6 +142,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
                 project: project_info,
                 docker: docker_info,
                 git: git_info,
+                tunnel: tunnel_info,
                 status,
                 health_check: None,
             });
@@ -146,7 +170,10 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
     Ok(entries)
 }
 
-/// Determine the status of a port entry.
+/// Determines the status of a port entry based on process existence and enrichment data.
+/// 
+/// Returns `Zombie` if the process doesn't exist, `Healthy` if it has project/Docker info,
+/// otherwise `Unknown`.
 fn determine_status(
     process_exists: bool,
     project: &Option<ProjectInfo>,
@@ -161,9 +188,13 @@ fn determine_status(
     Status::Unknown
 }
 
-/// Run health checks on all entries concurrently.
+/// Run health checks on all entries concurrently with limited concurrency.
 async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) {
     let timeout_ms = config.health.timeout_ms;
+    let max_concurrent = config.general.max_concurrent_health_checks;
+    
+    // Create a semaphore to limit concurrent health checks
+    let semaphore = Arc::new(Semaphore::new(max_concurrent));
     let mut handles = Vec::new();
 
     for entry in entries.iter() {
@@ -183,18 +214,27 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
             .unwrap_or_else(|| "/health".to_string());
 
         let timeout = timeout_ms;
+        let sem_permit = semaphore.clone().acquire_owned().await.unwrap();
+        
         handles.push(tokio::spawn(async move {
-            health::check_health(port, &endpoint, timeout).await
+            let result = health::check_health(port, &endpoint, timeout).await;
+            drop(sem_permit); // Release permit when done
+            (port, result)
         }));
     }
 
-    for (i, handle) in handles.into_iter().enumerate() {
-        if let Ok(result) = handle.await {
-            entries[i].health_check = Some(result);
-            // Update status based on health check
-            if let Some(ref hc) = entries[i].health_check {
-                if hc.status == HealthStatus::Healthy && entries[i].status == Status::Unknown {
-                    entries[i].status = Status::Healthy;
+    for handle in handles.into_iter() {
+        if let Ok((port, result)) = handle.await {
+            if let Some(entry) = entries.iter_mut().find(|e| e.port == port) {
+                entry.health_check = Some(result);
+                // Update status based on health check
+                if let Some(ref hc) = entry.health_check {
+                    if hc.status == HealthStatus::Healthy && entry.status == Status::Unknown {
+                        entry.status = Status::Healthy;
+                    } else if hc.status == HealthStatus::Unhealthy && entry.status == Status::Healthy {
+                        // Mark as warning if health check fails but process exists
+                        entry.status = Status::Warning("Health check failed".to_string());
+                    }
                 }
             }
         }

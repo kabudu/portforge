@@ -10,6 +10,7 @@ pub mod models;
 pub mod process;
 pub mod project;
 pub mod scanner;
+pub mod tunnel;
 pub mod tui;
 
 #[cfg(feature = "web")]

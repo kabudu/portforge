@@ -76,6 +76,7 @@ fn create_entry(port: u16, name: &str, status: Status) -> PortEntry {
         project: None,
         docker: None,
         git: None,
+        tunnel: None,
         status,
         health_check: None,
     }
@@ -85,4 +86,42 @@ fn create_entry_with_mem(port: u16, name: &str, mem: f64) -> PortEntry {
     let mut e = create_entry(port, name, Status::Healthy);
     e.memory_mb = mem;
     e
+}
+
+#[test]
+fn test_sort_entries_by_cpu() {
+    let mut entries = vec![
+        create_entry(3000, "a", Status::Healthy),
+        create_entry(3001, "b", Status::Healthy),
+        create_entry(3002, "c", Status::Healthy),
+    ];
+    entries[0].cpu_percent = 10.0;
+    entries[1].cpu_percent = 50.0;
+    entries[2].cpu_percent = 30.0;
+
+    scanner::sort_entries(&mut entries, SortField::Cpu, SortDirection::Descending);
+    assert_eq!(entries[0].port, 3001); // 50%
+    assert_eq!(entries[1].port, 3002); // 30%
+    assert_eq!(entries[2].port, 3000); // 10%
+}
+
+#[test]
+fn test_sort_entries_by_process_case_insensitive() {
+    let mut entries = vec![
+        create_entry(3000, "ZEBRA", Status::Healthy),
+        create_entry(3001, "apple", Status::Healthy),
+        create_entry(3002, "Banana", Status::Healthy),
+    ];
+
+    scanner::sort_entries(&mut entries, SortField::Process, SortDirection::Ascending);
+    assert_eq!(entries[0].process_name, "apple");
+    assert_eq!(entries[1].process_name, "Banana");
+    assert_eq!(entries[2].process_name, "ZEBRA");
+}
+
+#[test]
+fn test_sort_entries_empty_list() {
+    let mut entries: Vec<PortEntry> = Vec::new();
+    scanner::sort_entries(&mut entries, SortField::Port, SortDirection::Ascending);
+    assert!(entries.is_empty());
 }

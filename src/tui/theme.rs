@@ -120,6 +120,10 @@ impl Theme {
         Style::default().fg(Self::ACCENT_CYAN)
     }
 
+    pub fn tunnel() -> Style {
+        Style::default().fg(Self::ACCENT_ORANGE)
+    }
+
     pub fn git_clean() -> Style {
         Style::default().fg(Self::HEALTHY)
     }
