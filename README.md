@@ -8,7 +8,7 @@
 
 [![CI](https://github.com/kabudu/portforge/actions/workflows/ci.yml/badge.svg)](https://github.com/kabudu/portforge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 
 _Know what's running on your ports — instantly, with rich developer context._
 
