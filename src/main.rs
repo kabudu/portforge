@@ -25,7 +25,8 @@ async fn main() -> Result<()> {
 
     // Disable colors if requested (NO_COLOR convention)
     if cli.no_color {
-        std::env::set_var("NO_COLOR", "1");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("NO_COLOR", "1") };
     }
 
     // Load config

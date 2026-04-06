@@ -1,7 +1,7 @@
 [package]
 name = "portforge"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Kamba <kabudu@users.noreply.github.com>"]
 license = "MIT"
 description = "Modern cross-platform port inspector & manager for developers"
@@ -11,7 +11,7 @@ documentation = "https://github.com/kabudu/portforge#readme"
 readme = "README.md"
 keywords = ["port", "process", "developer-tools", "tui", "network"]
 categories = ["command-line-utilities", "development-tools", "network-programming"]
-rust-version = "1.75"
+rust-version = "1.85"
 
 [dependencies]
 # CLI
