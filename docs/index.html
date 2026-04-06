@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortForge | Modern Port Inspector & Manager</title>
+    <meta name="description" content="Modern cross-platform port inspector & manager for developers. Know what's running on your ports — instantly, with rich developer context.">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://github.com/kabudu/portforge">
+    <meta property="og:title" content="PortForge | Modern Port Inspector & Manager">
+    <meta property="og:description" content="Cross-platform port management with TUI, Docker, and Git integration.">
+    <meta property="og:image" content="assets/hero.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">
+                <img src="assets/logo.png" alt="PortForge Logo">
+                PortForge
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features" class="nav-link">Features</a></li>
+                <li><a href="#terminal" class="nav-link">Terminal</a></li>
+                <li><a href="#install" class="nav-link">Install</a></li>
+                <li><a href="https://github.com/kabudu/portforge/releases" class="nav-link" target="_blank">Releases</a></li>
+            </ul>
+            <div class="nav-actions">
+                <a href="https://github.com/kabudu/portforge" target="_blank" class="btn btn-secondary">
+                    <i class="fab fa-github"></i> Star
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container hero-grid">
+            <div class="hero-content">
+                <h1>Know Your Ports with <span>PortForge</span></h1>
+                <p class="hero-tagline">Modern cross-platform port inspector and manager for developers. Zero-config, blazing fast, and native container support.</p>
+                <div class="hero-btns">
+                    <a href="#install" class="btn btn-primary">Get Started <i class="fas fa-arrow-right"></i></a>
+                    <a href="https://github.com/kabudu/portforge" class="btn btn-secondary" target="_blank">GitHub</a>
+                </div>
+                <div class="hero-stats tech-stack" style="justify-content: flex-start; opacity: 1;">
+                    <div class="tech-item"><i class="fas fa-bolt" style="color: var(--primary)"></i><span>50ms Startup</span></div>
+                    <div class="tech-item"><i class="fas fa-link" style="color: var(--secondary)"></i><span>Docker & Git</span></div>
+                    <div class="tech-item"><i class="fas fa-magnifying-glass" style="color: var(--primary)"></i><span>Auto-Detect</span></div>
+                </div>
+            </div>
+            <div class="hero-image">
+                <img src="assets/hero.png" alt="PortForge Visualization">
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Built for Modern Developers</h2>
+                <p>Everything you need to keep your development workflow clean and efficient.</p>
+            </div>
+            <div class="features-grid">
+                <div class="glass-card feature-card">
+                    <div class="icon"><i class="fas fa-radar"></i></div>
+                    <h3>Project Detection</h3>
+                    <p>Auto-detects 20+ languages and 40+ frameworks. Shows your Express, FastAPI, or Axum versions right in the table.</p>
+                </div>
+                <div class="glass-card feature-card">
+                    <div class="icon"><i class="fab fa-docker"></i></div>
+                    <h3>Docker Integration</h3>
+                    <p>Native mapping for Docker/Podman container IDs, images, and project names via bollard API.</p>
+                </div>
+                <div class="glass-card feature-card">
+                    <div class="icon"><i class="fas fa-code-branch"></i></div>
+                    <h3>Git Integration</h3>
+                    <p>Stop hunting for the right instance. PortForge shows you exactly which git branch is running on which port.</p>
+                </div>
+                <div class="glass-card feature-card">
+                    <div class="icon"><i class="fas fa-heart-pulse"></i></div>
+                    <h3>Health Probes</h3>
+                    <p>HTTP health checks with framework-aware default endpoints. Know if your service is listening but dead.</p>
+                </div>
+                <div class="glass-card feature-card">
+                    <div class="icon"><i class="fas fa-microchip"></i></div>
+                    <h3>Resource Tracking</h3>
+                    <p>Real-time CPU and Memory usage per port, helping you track down leaked processes or heavy instances.</p>
+                </div>
+                <div class="glass-card feature-card">
+                    <div class="icon"><i class="fas fa-broom"></i></div>
+                    <h3>Orphan Cleanup</h3>
+                    <p>Identify zombie/orphan processes left behind by crashed IDEs and clean them safely with dry-run support.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Terminal Section -->
+    <section id="terminal" class="section glass" style="margin: 4rem 0;">
+        <div class="container">
+            <div class="section-header">
+                <h2>See it in Action</h2>
+                <p>A beautiful TUI with vim-keybindings that runs everywhere.</p>
+            </div>
+            <div class="terminal-window">
+                <div class="terminal-header">
+                    <div class="terminal-dot dot-red"></div>
+                    <div class="terminal-dot dot-yellow"></div>
+                    <div class="terminal-dot dot-green"></div>
+                    <div class="terminal-title">bash — portforge</div>
+                </div>
+                <div id="terminal-body" class="terminal-body">
+                    <!-- Typing simulation runs here -->
+                    <div class="prompt">~$ <span class="command">portforge</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Showcase Section -->
+    <section class="showcase">
+        <div class="container">
+            <div class="section-header">
+                <h2>Ultimate Observability</h2>
+                <p>A dual-interface experience. Powerful terminal primitives combined with rich web visualization.</p>
+            </div>
+            <div class="showcase-grid">
+                <div class="showcase-item">
+                    <span class="badge">Terminal UI</span>
+                    <div class="showcase-img">
+                        <img src="assets/tui_preview.png" alt="PortForge TUI Preview">
+                    </div>
+                    <p style="margin-top: 1.5rem; color: var(--text-muted); font-size: 0.95rem;">Interactive Rust dashboard with vim-keys and tree views.</p>
+                </div>
+                <div class="showcase-item">
+                    <span class="badge">Web Dashboard</span>
+                    <div class="showcase-img">
+                        <img src="assets/dashboard_preview.png" alt="PortForge Web Preview">
+                    </div>
+                    <p style="margin-top: 1.5rem; color: var(--text-muted); font-size: 0.95rem;">Real-time HTMX metrics with detailed health inspection.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="install" class="section">
+        <div class="container" style="text-align: center;">
+            <div class="section-header">
+                <h2>Quick Installation</h2>
+                <p>Get up and running in less than 30 seconds.</p>
+            </div>
+            <div class="install-tabs">
+                <div class="tab active" onclick="switchTab('cargo')">Cargo</div>
+                <div class="tab" onclick="switchTab('binary')">Binary</div>
+            </div>
+
+            <div id="install-cargo" class="install-content">
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode('cargo-code')"><i class="fas fa-clone"></i></button>
+                    <pre id="cargo-code">cargo install portforge</pre>
+                </div>
+            </div>
+
+            <div id="install-binary" class="install-content" style="display: none;">
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode('binary-code')"><i class="fas fa-clone"></i></button>
+                    <pre id="binary-code">curl -L "https://github.com/kabudu/portforge/releases/latest/download/portforge-macos-aarch64.tar.gz" | tar xz
+sudo mv portforge /usr/local/bin/</pre>
+                </div>
+                <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem;">Change "macos" and "aarch64" to match your system. See <a href="https://github.com/kabudu/portforge/releases" style="color: var(--primary)">releases</a> for all options.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="section">
+        <div class="container">
+            <div class="tech-stack">
+                <div class="tech-item"><div class="tech-icon"><i class="fab fa-rust"></i></div><span>Rust</span></div>
+                <div class="tech-item"><div class="tech-icon"><i class="fas fa-terminal"></i></div><span>Ratatui</span></div>
+                <div class="tech-item"><div class="tech-icon"><i class="fas fa-microchip"></i></div><span>SysInfo</span></div>
+                <div class="tech-item"><div class="tech-icon"><i class="fab fa-docker"></i></div><span>Bollard</span></div>
+                <div class="tech-item"><div class="tech-icon"><i class="fas fa-server"></i></div><span>Tokio</span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-info">
+                    <a href="#" class="logo"><img src="assets/logo.png" alt="Logo"> PortForge</a>
+                    <p>Know what's running on your ports — instantly, with rich developer context.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://github.com/kabudu/portforge/blob/master/README.md">Documentation</a></li>
+                        <li><a href="https://github.com/kabudu/portforge/blob/master/ROADMAP.md">Roadmap</a></li>
+                        <li><a href="https://github.com/kabudu/portforge/releases">Releases</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Community</h4>
+                    <ul>
+                        <li><a href="https://github.com/kabudu/portforge">GitHub</a></li>
+                        <li><a href="https://github.com/kabudu/portforge/issues">Issue Tracker</a></li>
+                        <li><a href="https://github.com/kabudu/portforge/blob/master/LICENSE">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 PortForge Project. Built with Rust. Hosted on GitHub Pages.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- App JS -->
+    <script src="js/app.js"></script>
+</body>
+</html>
