@@ -192,7 +192,7 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
             })
             .title(Span::styled(
                 format!(
-                    " ⚡ Ports ({}{}) ",
+                    " ◆ Active Ports ({}{}) ",
                     app.filtered_entries.len(),
                     if !app.search_query.is_empty() {
                         format!(" / {} total", app.entries.len())
@@ -210,7 +210,7 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                         app.sort_field.label(),
                         app.sort_direction.indicator()
                     ),
-                    Theme::info(),
+                    Theme::accent(),
                 ),
                 Span::raw(" "),
             ])),
@@ -274,7 +274,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             .border_type(BorderType::Rounded)
             .border_style(Theme::border_focus())
             .title(Span::styled(
-                format!(" 🔍 Port {} Detail ", entry.port),
+                format!(" ◆ Port {} Detail ", entry.port),
                 Theme::title(),
             ))
             .title_bottom(Line::from(Span::styled(

@@ -29,13 +29,16 @@ pub async fn dashboard_page(State(state): State<SharedState>) -> Html<String> {
         .max(0.0);
 
     let html = format!(
-        r#"<!DOCTYPE html>
+        r##"<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PortForge Dashboard</title>
     <meta name="description" content="PortForge — Modern port inspector and manager web dashboard">
+    <meta name="theme-color" content="#09101c">
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link rel="apple-touch-icon" href="/static/logo.png">
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
@@ -45,7 +48,7 @@ pub async fn dashboard_page(State(state): State<SharedState>) -> Html<String> {
         <header class="header">
             <div class="header-left">
                 <div class="logo">
-                    <span class="logo-icon">⚡</span>
+                    <img src="/static/logo.png" alt="PortForge logo" class="logo-mark">
                     <h1>PortForge</h1>
                     <span class="version">v{version}</span>
                 </div>
@@ -89,7 +92,7 @@ pub async fn dashboard_page(State(state): State<SharedState>) -> Html<String> {
 
     <script src="/static/app.js"></script>
 </body>
-</html>"#,
+</html>"##,
         version = env!("CARGO_PKG_VERSION"),
         stats_html = render_stats_cards(total, healthy, docker_count, total_mem),
         table_html = render_port_table(&state.entries),

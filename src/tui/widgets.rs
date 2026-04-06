@@ -17,11 +17,12 @@ pub fn render_header(f: &mut Frame, area: Rect, app: &App) {
 
     // Left: title and version
     let title = Paragraph::new(Line::from(vec![
-        Span::styled(" ⚡ ", Theme::title()),
+        Span::styled(" ◆ ", Theme::accent()),
         Span::styled("PortForge", Theme::title()),
+        Span::styled(" · local port intelligence", Theme::muted()),
         Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), Theme::muted()),
         if app.loading {
-            Span::styled(" ⟳", Theme::info())
+            Span::styled(" ⟳", Theme::accent())
         } else {
             Span::raw("")
         },
@@ -44,19 +45,19 @@ pub fn render_header(f: &mut Frame, area: Rect, app: &App) {
     let docker_count = app.entries.iter().filter(|e| e.docker.is_some()).count();
 
     let stats = Paragraph::new(Line::from(vec![
-        Span::styled(format!(" {} ", total), Theme::info()),
+        Span::styled(format!(" {} ", total), Theme::accent()),
         Span::styled("ports", Theme::muted()),
-        Span::raw("  "),
+        Span::styled("  •  ", Theme::title()),
         Span::styled(format!("{}", healthy), Theme::healthy()),
         Span::styled(" healthy", Theme::muted()),
-        Span::raw("  "),
+        Span::styled("  •  ", Theme::title()),
         Span::styled(format!("{}", docker_count), Theme::docker()),
         Span::styled(" docker", Theme::muted()),
-        Span::raw("  "),
+        Span::styled("  •  ", Theme::title()),
         if app.show_all {
             Span::styled("[ALL]", Theme::warning())
         } else {
-            Span::styled("[DEV]", Theme::info())
+            Span::styled("[DEV]", Theme::accent())
         },
     ]))
     .alignment(Alignment::Right)
@@ -73,26 +74,33 @@ pub fn render_header(f: &mut Frame, area: Rect, app: &App) {
 pub fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     let content = if let Some((ref msg, _)) = app.status_message {
         Line::from(vec![
-            Span::styled(" ", Theme::muted()),
-            Span::styled(msg, Theme::info()),
+            Span::styled(" ● ", Theme::title()),
+            Span::styled(msg, Theme::accent()),
         ])
     } else {
         match app.view_mode {
             ViewMode::Table => Line::from(vec![
                 Span::styled(" j/k", Theme::key_hint()),
                 Span::styled(" navigate  ", Theme::muted()),
+                Span::styled("• ", Theme::title()),
                 Span::styled("Enter", Theme::key_hint()),
                 Span::styled(" detail  ", Theme::muted()),
+                Span::styled("• ", Theme::title()),
                 Span::styled("K", Theme::key_hint()),
                 Span::styled(" kill  ", Theme::muted()),
+                Span::styled("• ", Theme::title()),
                 Span::styled("/", Theme::key_hint()),
                 Span::styled(" search  ", Theme::muted()),
+                Span::styled("• ", Theme::title()),
                 Span::styled("t", Theme::key_hint()),
                 Span::styled(" tree  ", Theme::muted()),
+                Span::styled("• ", Theme::title()),
                 Span::styled("a", Theme::key_hint()),
                 Span::styled(" all  ", Theme::muted()),
+                Span::styled("• ", Theme::title()),
                 Span::styled("?", Theme::key_hint()),
                 Span::styled(" help  ", Theme::muted()),
+                Span::styled("• ", Theme::title()),
                 Span::styled("q", Theme::key_hint()),
                 Span::styled(" quit", Theme::muted()),
             ]),
@@ -194,7 +202,7 @@ pub fn render_help_overlay(f: &mut Frame, area: Rect) {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Double)
                 .border_style(Theme::border_focus())
-                .title(Span::styled(" ⌨ Keyboard Shortcuts ", Theme::title()))
+                .title(Span::styled(" ◆ Keyboard Shortcuts ", Theme::title()))
                 .title_bottom(Line::from(Span::styled(
                     " Press ? or Esc to close ",
                     Theme::muted(),
@@ -246,7 +254,7 @@ pub fn render_kill_confirm(f: &mut Frame, area: Rect, entry: &PortEntry) {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Double)
                 .border_style(Theme::error())
-                .title(Span::styled(" ⚠ Kill Confirmation ", Theme::error())),
+                .title(Span::styled(" ◆ Kill Confirmation ", Theme::error())),
         )
         .style(ratatui::style::Style::default().bg(Theme::BG_OVERLAY));
     f.render_widget(dialog, modal_area);
@@ -272,7 +280,7 @@ pub fn render_search_bar(f: &mut Frame, area: Rect, query: &str) {
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Theme::border_focus())
-            .title(Span::styled(" Search ", Theme::title())),
+            .title(Span::styled(" ◆ Search ", Theme::title())),
     )
     .style(ratatui::style::Style::default().bg(Theme::BG_OVERLAY));
     f.render_widget(search, search_area);

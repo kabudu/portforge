@@ -1,50 +1,50 @@
 use ratatui::style::{Color, Modifier, Style};
 
 /// PortForge dark theme color palette.
-/// Inspired by modern developer tools (GitHub Dark, VS Code Dark+).
+/// Matches the GitHub Pages site and dashboard for a consistent product identity.
 pub struct Theme;
 
 impl Theme {
     // ─── Background Colors ───
-    pub const BG_PRIMARY: Color = Color::Rgb(13, 17, 23); // #0d1117 deep navy
-    pub const BG_SURFACE: Color = Color::Rgb(22, 27, 34); // #161b22 elevated
-    pub const BG_HIGHLIGHT: Color = Color::Rgb(33, 38, 45); // #21262d selection
-    pub const BG_OVERLAY: Color = Color::Rgb(22, 27, 34); // #161b22 modals
+    pub const BG_PRIMARY: Color = Color::Rgb(9, 16, 28); // #09101c
+    pub const BG_SURFACE: Color = Color::Rgb(15, 24, 42); // #0f182a
+    pub const BG_HIGHLIGHT: Color = Color::Rgb(20, 31, 53); // #141f35
+    pub const BG_OVERLAY: Color = Color::Rgb(10, 19, 35); // #0a1323
 
     // ─── Border Colors ───
-    pub const BORDER: Color = Color::Rgb(48, 54, 61); // #30363d
-    pub const BORDER_FOCUS: Color = Color::Rgb(88, 166, 255); // #58a6ff
+    pub const BORDER: Color = Color::Rgb(38, 53, 80); // #263550
+    pub const BORDER_FOCUS: Color = Color::Rgb(85, 198, 255); // #55c6ff
 
     // ─── Text Colors ───
-    pub const TEXT_PRIMARY: Color = Color::Rgb(230, 237, 243); // #e6edf3
-    pub const TEXT_SECONDARY: Color = Color::Rgb(139, 148, 158); // #8b949e
-    pub const TEXT_MUTED: Color = Color::Rgb(110, 118, 129); // #6e7681
-    pub const TEXT_INVERSE: Color = Color::Rgb(13, 17, 23); // #0d1117
+    pub const TEXT_PRIMARY: Color = Color::Rgb(243, 246, 251); // #f3f6fb
+    pub const TEXT_SECONDARY: Color = Color::Rgb(188, 199, 218); // #bcc7da
+    pub const TEXT_MUTED: Color = Color::Rgb(145, 160, 184); // #91a0b8
+    pub const TEXT_INVERSE: Color = Color::Rgb(8, 17, 29); // #08111d
 
     // ─── Status Colors ───
-    pub const HEALTHY: Color = Color::Rgb(63, 185, 80); // #3fb950 green
-    pub const WARNING: Color = Color::Rgb(210, 153, 34); // #d29922 amber
-    pub const ERROR: Color = Color::Rgb(248, 81, 73); // #f85149 red
-    pub const INFO: Color = Color::Rgb(88, 166, 255); // #58a6ff blue
+    pub const HEALTHY: Color = Color::Rgb(96, 211, 148); // #60d394
+    pub const WARNING: Color = Color::Rgb(255, 177, 90); // #ffb15a
+    pub const ERROR: Color = Color::Rgb(255, 107, 87); // #ff6b57
+    pub const INFO: Color = Color::Rgb(85, 198, 255); // #55c6ff
 
     // ─── Accent Colors ───
-    pub const ACCENT_BLUE: Color = Color::Rgb(88, 166, 255); // #58a6ff
-    pub const ACCENT_PURPLE: Color = Color::Rgb(188, 140, 255); // #bc8cff
-    pub const ACCENT_CYAN: Color = Color::Rgb(63, 214, 207); // #3fd6cf
-    pub const ACCENT_ORANGE: Color = Color::Rgb(219, 171, 9); // #dbab09
+    pub const ACCENT_BLUE: Color = Color::Rgb(85, 198, 255); // #55c6ff
+    pub const ACCENT_PURPLE: Color = Color::Rgb(255, 177, 90); // warm accent reused for numeric emphasis
+    pub const ACCENT_CYAN: Color = Color::Rgb(85, 198, 255); // align docker and info surfaces
+    pub const ACCENT_ORANGE: Color = Color::Rgb(255, 122, 26); // #ff7a1a
 
     // ─── Semantic Styles ───
 
     pub fn title() -> Style {
         Style::default()
-            .fg(Self::ACCENT_BLUE)
+            .fg(Self::ACCENT_ORANGE)
             .add_modifier(Modifier::BOLD)
     }
 
     pub fn header() -> Style {
         Style::default()
             .fg(Self::TEXT_PRIMARY)
-            .bg(Self::BG_SURFACE)
+            .bg(Self::BG_HIGHLIGHT)
             .add_modifier(Modifier::BOLD)
     }
 
@@ -99,25 +99,31 @@ impl Theme {
 
     pub fn status_bar() -> Style {
         Style::default()
-            .fg(Self::TEXT_SECONDARY)
-            .bg(Self::BG_SURFACE)
+            .fg(Self::TEXT_PRIMARY)
+            .bg(Self::BG_HIGHLIGHT)
+    }
+
+    pub fn accent() -> Style {
+        Style::default()
+            .fg(Self::ACCENT_BLUE)
+            .add_modifier(Modifier::BOLD)
     }
 
     pub fn key_hint() -> Style {
         Style::default()
-            .fg(Self::ACCENT_CYAN)
+            .fg(Self::ACCENT_BLUE)
             .add_modifier(Modifier::BOLD)
     }
 
     pub fn search_highlight() -> Style {
         Style::default()
             .fg(Self::TEXT_INVERSE)
-            .bg(Self::ACCENT_ORANGE)
+            .bg(Self::ACCENT_BLUE)
             .add_modifier(Modifier::BOLD)
     }
 
     pub fn docker() -> Style {
-        Style::default().fg(Self::ACCENT_CYAN)
+        Style::default().fg(Self::ACCENT_BLUE)
     }
 
     pub fn tunnel() -> Style {
@@ -134,7 +140,7 @@ impl Theme {
 
     pub fn port_number() -> Style {
         Style::default()
-            .fg(Self::ACCENT_PURPLE)
+            .fg(Self::ACCENT_ORANGE)
             .add_modifier(Modifier::BOLD)
     }
 

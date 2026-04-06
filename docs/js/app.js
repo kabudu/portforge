@@ -1,117 +1,227 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Navbar scroll effect
-    const nav = document.querySelector('nav');
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 50) {
-            nav.classList.add('scrolled');
-        } else {
-            nav.classList.remove('scrolled');
-        }
+document.addEventListener("DOMContentLoaded", () => {
+  const header = document.querySelector("[data-header]");
+  const nav = document.querySelector("[data-nav]");
+  const navToggle = document.querySelector("[data-nav-toggle]");
+  const commandTabs = Array.from(
+    document.querySelectorAll("[data-command-tab]"),
+  );
+  const commandOutput = document.querySelector("[data-command-output]");
+  const installTabs = Array.from(
+    document.querySelectorAll("[data-install-tab]"),
+  );
+  const installPanels = Array.from(
+    document.querySelectorAll("[data-install-panel]"),
+  );
+  const copyButtons = Array.from(
+    document.querySelectorAll("[data-copy-target]"),
+  );
+  const copyStatus = document.querySelector("[data-copy-status]");
+
+  const commandExamples = {
+    default: [
+      "$ portforge",
+      "",
+      "PORT   PID     PROCESS   PROJECT        GIT           HEALTH",
+      "3000   18452   node      next-router    feat/auth     Healthy",
+      "5000   20117   python    api_v2         main          Healthy",
+      "8080   12931   node      server.js      dirty         Unknown",
+    ].join("\n"),
+    all: [
+      "$ portforge --all",
+      "",
+      "PORT   PID     PROCESS     CONTEXT",
+      "22     800     sshd        system",
+      "5432   1540    postgres    data store",
+      "3000   18452   node        next-router",
+      "5000   20117   python      api_v2",
+    ].join("\n"),
+    inspect: [
+      "$ portforge inspect 3000",
+      "",
+      "Process: node (PID 18452)",
+      "Project: next-router",
+      "Framework: Next.js",
+      "Branch: feat/auth",
+      "Health: 200 OK in 14ms",
+      "Network: 127.0.0.1:3000",
+    ].join("\n"),
+  };
+
+  const setHeaderState = () => {
+    if (!header) {
+      return;
+    }
+
+    header.classList.toggle("is-scrolled", window.scrollY > 12);
+  };
+
+  const closeNav = () => {
+    if (!nav || !navToggle) {
+      return;
+    }
+
+    nav.classList.remove("is-open");
+    navToggle.setAttribute("aria-expanded", "false");
+  };
+
+  const openNav = () => {
+    if (!nav || !navToggle) {
+      return;
+    }
+
+    nav.classList.add("is-open");
+    navToggle.setAttribute("aria-expanded", "true");
+  };
+
+  if (nav && navToggle) {
+    navToggle.addEventListener("click", () => {
+      const expanded = navToggle.getAttribute("aria-expanded") === "true";
+      if (expanded) {
+        closeNav();
+      } else {
+        openNav();
+      }
     });
 
-    // Terminal Typing Effect
-    const terminalBody = document.getElementById('terminal-body');
-    const commands = [
-        { text: 'portforge', delay: 1000 },
-        { text: 'portforge --all', delay: 3000 },
-        { text: 'portforge inspect 3000', delay: 2000 }
-    ];
-
-    const terminalMocks = {
-        'portforge': `
-<span class="output">[SCANNING] Ports...</span>
-<span class="output">PORT   PID     PROCESS        PROJECT     STATUS</span>
-<span class="output">3000   12450   node           Next.js     ● Healthy</span>
-<span class="output">8080   32101   python         FastAPI     ● Healthy</span>
-<span class="output">9000   54122   portforge      Rust        ? Unknown</span>`,
-        'portforge --all': `
-<span class="output">[SCANNING] All listening ports...</span>
-<span class="output">PORT   PID     PROCESS        PROJECT     STATUS</span>
-<span class="output">22     800     sshd           System      -</span>
-<span class="output">3000   12450   node           Next.js     ● Healthy</span>
-<span class="output">5432   1540    postgres       DB          ● Healthy</span>
-<span class="output">8080   32101   python         FastAPI     ● Healthy</span>`,
-        'portforge inspect 3000': `
-<span class="output">[INSPECT] Port 3000</span>
-<span class="output">Process: node (PID 12450)</span>
-<span class="output">Project: portforge-ui (Next.js)</span>
-<span class="output">Framework Detect: package.json (next: v14.0.1)</span>
-<span class="output">Health: ● Healthy (200 OK)</span>
-<span class="output">Uptime: 2h 14m</span>`
-    };
-
-    async fn typeCommand(text, container) {
-        return new Promise(resolve => {
-            let i = 0;
-            const prompt = document.createElement('div');
-            prompt.innerHTML = '<span class="prompt">~$</span> <span class="command"></span><span class="cursor"></span>';
-            container.appendChild(prompt);
-            const cmdSpan = prompt.querySelector('.command');
-            
-            const interval = setInterval(() => {
-                cmdSpan.textContent += text[i];
-                i++;
-                if (i === text.length) {
-                    clearInterval(interval);
-                    prompt.querySelector('.cursor').remove();
-                    resolve();
-                }
-            }, 50);
-        });
-    }
-
-    async fn runTerminal() {
-        terminalBody.innerHTML = '';
-        for (const cmd of commands) {
-            await typeCommand(cmd.text, terminalBody);
-            const output = document.createElement('div');
-            output.innerHTML = terminalMocks[cmd.text];
-            terminalBody.appendChild(output);
-            await new Promise(r => setTimeout(r, cmd.delay));
+    nav.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        if (window.innerWidth <= 860) {
+          closeNav();
         }
-        setTimeout(runTerminal, 5000);
-    }
-
-    if (terminalBody) runTerminal();
-
-    // Copy to Clipboard
-    window.copyCode = (id) => {
-        const code = document.getElementById(id).textContent;
-        navigator.clipboard.writeText(code).then(() => {
-            const btn = document.querySelector(`[onclick="copyCode('${id}')"]`);
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span style="color: var(--primary)">✓</span>';
-            setTimeout(() => { btn.innerHTML = originalText; }, 2000);
-        });
-    }
-
-    // Tabs
-    window.switchTab = (method) => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.install-content').forEach(c => c.style.display = 'none');
-        
-        document.querySelector(`.tab[onclick*="${method}"]`).classList.add('active');
-        document.getElementById(`install-${method}`).style.display = 'block';
-    }
-
-    // Reveal on Scroll
-    const observerOptions = {
-        threshold: 0.1
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-            }
-        });
-    }, observerOptions);
-
-    document.querySelectorAll('.glass-card').forEach(card => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(30px)';
-        card.style.transition = 'all 0.6s ease-out';
-        observer.observe(card);
+      });
     });
+  }
+
+  const setCommand = (commandKey, focusPanel = false) => {
+    if (!commandOutput || !(commandKey in commandExamples)) {
+      return;
+    }
+
+    commandTabs.forEach((tab) => {
+      const isActive = tab.dataset.commandKey === commandKey;
+      tab.classList.toggle("is-active", isActive);
+      tab.setAttribute("aria-selected", String(isActive));
+    });
+
+    const activeTab = commandTabs.find(
+      (tab) => tab.dataset.commandKey === commandKey,
+    );
+    if (activeTab) {
+      commandOutput.setAttribute("aria-labelledby", activeTab.id);
+    }
+
+    commandOutput.textContent = commandExamples[commandKey];
+
+    if (focusPanel) {
+      commandOutput.focus();
+    }
+  };
+
+  commandTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () =>
+      setCommand(tab.dataset.commandKey, false),
+    );
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+        return;
+      }
+
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const nextIndex =
+        (index + direction + commandTabs.length) % commandTabs.length;
+      commandTabs[nextIndex].focus();
+      setCommand(commandTabs[nextIndex].dataset.commandKey, true);
+    });
+  });
+
+  const setInstallTab = (tabName) => {
+    installTabs.forEach((tab) => {
+      const isActive = tab.dataset.installTab === tabName;
+      tab.classList.toggle("is-active", isActive);
+      tab.setAttribute("aria-selected", String(isActive));
+    });
+
+    installPanels.forEach((panel) => {
+      const isActive = panel.dataset.installPanel === tabName;
+      panel.classList.toggle("is-active", isActive);
+      panel.hidden = !isActive;
+    });
+  };
+
+  installTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => setInstallTab(tab.dataset.installTab));
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+        return;
+      }
+
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const nextIndex =
+        (index + direction + installTabs.length) % installTabs.length;
+      installTabs[nextIndex].focus();
+      setInstallTab(installTabs[nextIndex].dataset.installTab);
+    });
+  });
+
+  copyButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const target = document.getElementById(button.dataset.copyTarget);
+      if (!target) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(target.textContent);
+        const originalText = button.textContent;
+        button.textContent = "Copied";
+        button.classList.add("is-copied");
+        if (copyStatus) {
+          copyStatus.textContent = "Installation command copied to clipboard.";
+        }
+
+        window.setTimeout(() => {
+          button.textContent = originalText;
+          button.classList.remove("is-copied");
+        }, 1800);
+      } catch (error) {
+        if (copyStatus) {
+          copyStatus.textContent =
+            "Clipboard copy failed. Select the command manually.";
+        }
+      }
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!nav || !navToggle) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+
+    if (!nav.contains(target) && !navToggle.contains(target)) {
+      closeNav();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeNav();
+    }
+  });
+
+  setHeaderState();
+  setCommand("default");
+  setInstallTab("cargo");
+  window.addEventListener("scroll", setHeaderState, { passive: true });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 860) {
+      closeNav();
+    }
+  });
 });

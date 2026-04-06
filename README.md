@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/logo.png" alt="PortForge logo" width="120" />
+
 # ⚡ PortForge
 
 **Modern cross-platform port inspector & manager for developers**
@@ -8,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
 
-*Know what's running on your ports — instantly, with rich developer context.*
+_Know what's running on your ports — instantly, with rich developer context._
 
 </div>
 
@@ -95,19 +97,19 @@ portforge serve --port 9090
 
 ## 🖥️ TUI Keybindings
 
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Move down |
-| `k` / `↑` | Move up |
-| `g` / `G` | Go to top / bottom |
-| `Enter` / `d` | View port details |
-| `K` | Kill process (with confirmation) |
-| `t` | Process tree view |
-| `/` | Search / filter |
-| `a` | Toggle all / dev ports |
-| `1`-`8` | Sort by column |
-| `?` | Help overlay |
-| `q` / `Esc` | Quit / go back |
+| Key           | Action                           |
+| ------------- | -------------------------------- |
+| `j` / `↓`     | Move down                        |
+| `k` / `↑`     | Move up                          |
+| `g` / `G`     | Go to top / bottom               |
+| `Enter` / `d` | View port details                |
+| `K`           | Kill process (with confirmation) |
+| `t`           | Process tree view                |
+| `/`           | Search / filter                  |
+| `a`           | Toggle all / dev ports           |
+| `1`-`8`       | Sort by column                   |
+| `?`           | Help overlay                     |
+| `q` / `Esc`   | Quit / go back                   |
 
 ## 🌐 Web Dashboard
 
@@ -119,6 +121,7 @@ portforge serve --port 9090
 ```
 
 The dashboard provides:
+
 - 📊 Real-time stats cards (ports, healthy, docker, memory)
 - 📋 Auto-refreshing port table (HTMX, every 3s)
 - 🔍 Click-to-inspect port details
@@ -185,6 +188,7 @@ portforge/
 ```
 
 **Key dependencies:**
+
 - [`ratatui`](https://ratatui.rs) — Terminal UI framework
 - [`crossterm`](https://github.com/crossterm-rs/crossterm) — Terminal backend
 - [`sysinfo`](https://github.com/GuillaumeGomez/sysinfo) — System/process info
