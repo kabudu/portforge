@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Improved
+
+### Fixed
+
+## [0.1.1] - 2026-04-06
+
+### Added
+
 - **Rust 2024 Edition** — Migrated to the latest Rust edition and bumped the minimum supported `rust-version` to 1.85.
 - **Tunnel Detection** — New `tunnel.rs` module for detecting ngrok, cloudflared, localtunnel, and SSH reverse tunnels with public URL extraction.
 - **TUI Scrolling** — Implemented table auto-scroll and manual navigation (Home/End/g/G) using `table_scroll_offset`.
