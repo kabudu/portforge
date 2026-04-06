@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Rust 2024 Edition** — Migrated to the latest Rust edition and bumped the minimum supported `rust-version` to 1.85.
 - **Tunnel Detection** — New `tunnel.rs` module for detecting ngrok, cloudflared, localtunnel, and SSH reverse tunnels with public URL extraction.
 - **TUI Scrolling** — Implemented table auto-scroll and manual navigation (Home/End/g/G) using `table_scroll_offset`.
 - **Tunnel Column** — Added dedicated "Tunnel" column to both the TUI dashboard and tabular exports (CSV/Table).
 
 ### Improved
 
+- **TUI Responsiveness** — Refactored event loop to use `async` key handling, enabling immediate UI updates on toggle (e.g., 'a' for all ports), refresh ('r'), and process kill.
 - **Health Checks** — Added concurrency limiting via `tokio::sync::Semaphore` to prevent resource exhaustion during scans.
 - **Docker Integration** — Replaced silent fallback/panics with proper warning logs when the Docker daemon is unreachable.
 - **Kill Process** — Re-architected `kill_process` with exponential backoff retries and post-signal existence verification.
@@ -23,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Dev Port Detection** — Resolved issue where certain projects (like "deliberium") were hidden by enabling CWD (Current Working Directory) retrieval.
+- **TUI Navigation** — Fixed incorrect 'a' key mapping (previously bound to 'T') for toggling the dev/all port filter.
+- **CI Workflow** — Fixed project formatting (fmt) and addressed multiple clippy lints to unblock automated checks.
 - **Metrics** — Resolved CPU percentage reporting 0.0% by enforcing a global thread-safe state cache spanning refresh cycles.
 - **Metrics** — Prevented memory sizes formatting as negative zeros (-0.0) in aggregate floats.
 - **Docker** — Identified Docker containers correctly map natively to "Healthy" overriding default fallback.
