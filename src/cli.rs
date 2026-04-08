@@ -86,6 +86,24 @@ pub enum Commands {
         output: Option<String>,
     },
 
+    /// Find free ports starting from a given port
+    Free {
+        /// Starting port number to search from
+        #[arg(default_value = "3000")]
+        start: u16,
+
+        /// Number of free ports to find
+        #[arg(short, long, default_value = "1")]
+        count: usize,
+    },
+
+    /// Detect port conflicts (multiple processes on same port)
+    Conflicts {
+        /// Check a specific port
+        #[arg(short, long)]
+        port: Option<u16>,
+    },
+
     /// Launch the web dashboard
     #[cfg(feature = "web")]
     Serve {

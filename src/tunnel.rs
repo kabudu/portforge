@@ -6,6 +6,7 @@ const TUNNEL_PROCESSES: &[(&str, &str)] = &[
     ("ngrok", "ngrok"),
     ("cloudflared", "cloudflared"),
     ("localtunnel", "lt"),
+    ("tailscale", "tailscale"),
     ("serveo", "serveo"),
     ("ssh", "ssh"), // Could be SSH reverse tunnel
 ];
@@ -68,6 +69,17 @@ fn extract_tunnel_url(command: &str, kind: &str) -> Option<String> {
                     .split_whitespace()
                     .next()
                     .map(|sub| format!("https://{}.loca.lt", sub))
+            } else {
+                None
+            }
+        }
+        "tailscale" => {
+            if command.contains("funnel") || command.contains("serve") {
+                command
+                    .split_whitespace()
+                    .find(|part| part.ends_with(".ts.net") || part.ends_with(".tailscale.net"))
+                    .map(String::from)
+                    .or_else(|| Some("Tailscale Funnel".to_string()))
             } else {
                 None
             }
@@ -154,5 +166,14 @@ mod tests {
             tunnel.unwrap().public_url,
             Some("https://abc123.ngrok.io".to_string())
         );
+    }
+
+    #[test]
+    fn test_detect_tailscale_funnel() {
+        let tunnel = detect_tunnel("tailscale", "tailscale funnel 3000");
+        assert!(tunnel.is_some());
+        let info = tunnel.unwrap();
+        assert_eq!(info.kind, "tailscale");
+        assert_eq!(info.public_url, Some("Tailscale Funnel".to_string()));
     }
 }

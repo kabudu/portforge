@@ -1,6 +1,6 @@
 use crate::models::Status;
-use crate::tui::app::{App, ViewMode};
-use crate::tui::theme::Theme;
+use crate::resource_history::sparkline_text;
+use crate::tui::app::{App, Tab, ViewMode};
 use crate::tui::widgets;
 use ratatui::{
     Frame,
@@ -12,18 +12,21 @@ use ratatui::{
 
 /// Main render function — dispatches to the current view.
 pub fn render(f: &mut Frame, app: &App) {
+    let theme = &app.theme;
+    
     // Main background
     let area = f.area();
     f.render_widget(
-        Block::default().style(Style::default().bg(Theme::BG_PRIMARY)),
+        Block::default().style(Style::default().bg(theme.bg_primary())),
         area,
     );
 
-    // Main layout: header + content + status bar
+    // Main layout: header + tabs + content + status bar
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // Header
+            Constraint::Length(1), // Tab bar
             Constraint::Min(10),   // Content
             Constraint::Length(1), // Status bar
         ])
@@ -32,44 +35,88 @@ pub fn render(f: &mut Frame, app: &App) {
     // Header
     widgets::render_header(f, chunks[0], app);
 
-    // Content area
-    match app.view_mode {
-        ViewMode::Table | ViewMode::Search => render_table(f, chunks[1], app),
-        ViewMode::Detail => render_detail(f, chunks[1], app),
-        ViewMode::ProcessTree => render_process_tree(f, chunks[1], app),
-        _ => render_table(f, chunks[1], app),
+    // Tab bar
+    render_tab_bar(f, chunks[1], app);
+
+    // Content area based on active tab
+    match app.active_tab {
+        Tab::Ports => {
+            match app.view_mode {
+                ViewMode::Table | ViewMode::Search => render_table(f, chunks[2], app),
+                ViewMode::Detail => render_detail(f, chunks[2], app),
+                ViewMode::ProcessTree => render_process_tree(f, chunks[2], app),
+                _ => render_table(f, chunks[2], app),
+            }
+        }
+        Tab::Processes => render_processes_tab(f, chunks[2], app),
+        Tab::Docker => render_docker_tab(f, chunks[2], app),
+        Tab::Logs => render_logs_tab(f, chunks[2], app),
     }
 
     // Status bar
-    widgets::render_status_bar(f, chunks[2], app);
+    widgets::render_status_bar(f, chunks[3], app);
 
     // Overlays (modals)
     match app.view_mode {
-        ViewMode::Help => widgets::render_help_overlay(f, area),
+        ViewMode::Help => widgets::render_help_overlay(f, area, theme),
         ViewMode::KillConfirm => {
             if let Some(entry) = app.selected_entry() {
-                widgets::render_kill_confirm(f, area, entry);
+                widgets::render_kill_confirm(f, area, entry, theme);
             }
         }
-        ViewMode::Search => widgets::render_search_bar(f, area, &app.search_query),
+        ViewMode::Search => widgets::render_search_bar(f, area, &app.search_query, theme),
         _ => {}
     }
 }
 
+/// Render the tab bar.
+fn render_tab_bar(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+    let tabs = [Tab::Ports, Tab::Processes, Tab::Docker, Tab::Logs];
+    
+    let spans: Vec<Span> = tabs.iter().map(|tab| {
+        if *tab == app.active_tab {
+            Span::styled(
+                format!(" {} ", tab.label()),
+                theme.tab_active(),
+            )
+        } else {
+            Span::styled(
+                format!(" {} ", tab.label()),
+                theme.tab_inactive(),
+            )
+        }
+    }).collect();
+
+    let mut line_spans = vec![Span::raw("  ")];
+    for (i, span) in spans.into_iter().enumerate() {
+        line_spans.push(span);
+        if i < tabs.len() - 1 {
+            line_spans.push(Span::styled(" │ ", theme.muted()));
+        }
+    }
+
+    let bar = Paragraph::new(Line::from(line_spans))
+        .style(Style::default().bg(theme.bg_surface()));
+    f.render_widget(bar, area);
+}
+
 /// Render the main port table.
 fn render_table(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+    
     if app.entries.is_empty() && !app.loading {
         let msg = if app.show_all {
             "No listening ports found."
         } else {
             "No dev project ports found. Press 'a' to show all ports."
         };
-        let paragraph = Paragraph::new(msg).style(Theme::muted()).block(
+        let paragraph = Paragraph::new(msg).style(theme.muted()).block(
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Theme::border())
-                .title(Span::styled(" Ports ", Theme::title())),
+                .border_style(theme.border())
+                .title(Span::styled(" Ports ", theme.title())),
         );
         f.render_widget(paragraph, area);
         return;
@@ -77,13 +124,13 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
 
     if app.loading && app.entries.is_empty() {
         let paragraph = Paragraph::new("⏳ Scanning ports...")
-            .style(Theme::info())
+            .style(theme.info())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .border_style(Theme::border())
-                    .title(Span::styled(" Ports ", Theme::title())),
+                    .border_style(theme.border())
+                    .title(Span::styled(" Ports ", theme.title())),
             );
         f.render_widget(paragraph, area);
         return;
@@ -99,8 +146,8 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
         ("Tunnel", SortCol::Tunnel),
         ("Docker", SortCol::Docker),
         ("Uptime", SortCol::Uptime),
-        ("Mem", SortCol::Mem),
-        ("CPU", SortCol::Cpu),
+        ("CPU %", SortCol::Cpu),
+        ("Mem MB", SortCol::Mem),
         ("Status", SortCol::Status),
     ];
 
@@ -112,52 +159,73 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
         };
         Cell::from(format!("{}{}", name, sort_indicator))
     }))
-    .style(Theme::header())
+    .style(theme.header())
     .height(1);
+
+    let visible_rows = table_visible_rows(area);
+    let viewport_start = app
+        .table_scroll_offset
+        .min(app.filtered_entries.len().saturating_sub(visible_rows));
+    let viewport_end = (viewport_start + visible_rows).min(app.filtered_entries.len());
 
     // Data rows
     let rows: Vec<Row> = app
         .filtered_entries
         .iter()
+        .skip(viewport_start)
+        .take(viewport_end.saturating_sub(viewport_start))
         .enumerate()
         .map(|(i, &idx)| {
             let entry = &app.entries[idx];
-            let is_selected = i == app.selected;
+            let absolute_index = viewport_start + i;
+            let is_selected = absolute_index == app.selected;
 
-            let status_style = Theme::status_style(&entry.status);
+            let status_style = theme.status_style(&entry.status);
+
+            // Get sparkline for CPU if we have history
+            let cpu_display = if let Some(history) = app.resource_tracker.get(entry.pid) {
+                if history.samples.len() > 1 {
+                    let spark = sparkline_text(&history.cpu_values(), 8);
+                    format!("{:.1}% {}", entry.cpu_percent, spark)
+                } else {
+                    format!("{:.1}%", entry.cpu_percent)
+                }
+            } else {
+                format!("{:.1}%", entry.cpu_percent)
+            };
 
             let cells = vec![
-                Cell::from(format!("{}", entry.port)).style(Theme::port_number()),
-                Cell::from(format!("{}", entry.pid)).style(Theme::muted()),
-                Cell::from(entry.process_name.clone()).style(Theme::process_name()),
-                Cell::from(entry.project_display()).style(Theme::info()),
+                Cell::from(format!("{}", entry.port)).style(theme.port_number()),
+                Cell::from(format!("{}", entry.pid)).style(theme.muted()),
+                Cell::from(entry.process_name.clone()).style(theme.process_name()),
+                Cell::from(entry.project_display()).style(theme.info()),
                 Cell::from(entry.git_display()).style(
                     if entry.git.as_ref().is_some_and(|g| g.dirty) {
-                        Theme::git_dirty()
+                        theme.git_dirty()
                     } else {
-                        Theme::git_clean()
+                        theme.git_clean()
                     },
                 ),
-                Cell::from(entry.tunnel_display()).style(Theme::tunnel()),
-                Cell::from(entry.docker_display()).style(Theme::docker()),
-                Cell::from(entry.uptime_display()).style(Theme::muted()),
-                Cell::from(format!("{:.0}MB", entry.memory_mb.max(0.0))).style(Theme::muted()),
-                Cell::from(format!("{:.1}%", entry.cpu_percent)).style(
+                Cell::from(entry.tunnel_display()).style(theme.tunnel()),
+                Cell::from(entry.docker_display()).style(theme.docker()),
+                Cell::from(entry.uptime_display()).style(theme.muted()),
+                Cell::from(cpu_display).style(
                     if entry.cpu_percent > 50.0 {
-                        Theme::warning()
+                        theme.warning()
                     } else {
-                        Theme::muted()
+                        theme.muted()
                     },
                 ),
+                Cell::from(format!("{:.0}MB", entry.memory_mb.max(0.0))).style(theme.muted()),
                 Cell::from(entry.status.to_string()).style(status_style),
             ];
 
             let style = if is_selected {
-                Theme::row_selected()
+                theme.row_selected()
             } else if i % 2 == 0 {
-                Theme::row_normal()
+                theme.row_normal()
             } else {
-                Theme::row_alt()
+                theme.row_alt()
             };
 
             Row::new(cells).style(style).height(1)
@@ -175,8 +243,8 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(22), // Tunnel
             Constraint::Length(14), // Docker
             Constraint::Length(9),  // Uptime
+            Constraint::Length(16), // CPU (with sparkline)
             Constraint::Length(8),  // Mem
-            Constraint::Length(7),  // CPU
             Constraint::Length(12), // Status
         ],
     )
@@ -186,9 +254,9 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(if app.view_mode == ViewMode::Search {
-                Theme::border_focus()
+                theme.border_focus()
             } else {
-                Theme::border()
+                theme.border()
             })
             .title(Span::styled(
                 format!(
@@ -200,30 +268,37 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                         String::new()
                     }
                 ),
-                Theme::title(),
+                theme.title(),
             ))
             .title_bottom(Line::from(vec![
-                Span::styled(" Sort: ", Theme::muted()),
+                Span::styled(" Sort: ", theme.muted()),
                 Span::styled(
                     format!(
                         "{} {}",
                         app.sort_field.label(),
                         app.sort_direction.indicator()
                     ),
-                    Theme::accent(),
+                    theme.accent(),
                 ),
                 Span::raw(" "),
             ])),
     )
-    .row_highlight_style(Theme::row_selected());
+    .row_highlight_style(theme.row_selected());
 
     let mut state = TableState::default();
-    state.select(Some(app.selected));
+    if viewport_start <= app.selected && app.selected < viewport_end {
+        state.select(Some(app.selected - viewport_start));
+    }
     f.render_stateful_widget(table, area, &mut state);
 }
 
-/// Render detailed port inspection.
+fn table_visible_rows(area: Rect) -> usize {
+    area.height.saturating_sub(4).max(1) as usize
+}
+
+/// Render detailed port inspection with sparklines.
 fn render_detail(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
     let entry = match app.selected_entry() {
         Some(e) => e,
         None => return,
@@ -232,39 +307,40 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(8), // Basic info
-            Constraint::Min(4),    // Extra sections
+            Constraint::Length(8),  // Basic info
+            Constraint::Length(5),  // Sparklines
+            Constraint::Min(4),     // Extra sections
         ])
         .split(area);
 
     // Basic info
     let basic_lines = vec![
         Line::from(vec![
-            Span::styled("  Port:      ", Theme::muted()),
+            Span::styled("  Port:      ", theme.muted()),
             Span::styled(
                 format!("{}/{}", entry.port, entry.protocol),
-                Theme::port_number(),
+                theme.port_number(),
             ),
         ]),
         Line::from(vec![
-            Span::styled("  PID:       ", Theme::muted()),
-            Span::styled(format!("{}", entry.pid), Theme::info()),
+            Span::styled("  PID:       ", theme.muted()),
+            Span::styled(format!("{}", entry.pid), theme.info()),
         ]),
         Line::from(vec![
-            Span::styled("  Process:   ", Theme::muted()),
-            Span::styled(&entry.process_name, Theme::process_name()),
+            Span::styled("  Process:   ", theme.muted()),
+            Span::styled(&entry.process_name, theme.process_name()),
         ]),
         Line::from(vec![
-            Span::styled("  Command:   ", Theme::muted()),
+            Span::styled("  Command:   ", theme.muted()),
             Span::raw(&entry.command),
         ]),
         Line::from(vec![
-            Span::styled("  Memory:    ", Theme::muted()),
+            Span::styled("  Memory:    ", theme.muted()),
             Span::raw(format!("{:.1} MB", entry.memory_mb.max(0.0))),
         ]),
         Line::from(vec![
-            Span::styled("  Status:    ", Theme::muted()),
-            Span::styled(entry.status.to_string(), Theme::status_style(&entry.status)),
+            Span::styled("  Status:    ", theme.muted()),
+            Span::styled(entry.status.to_string(), theme.status_style(&entry.status)),
         ]),
     ];
 
@@ -272,65 +348,104 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
         Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Theme::border_focus())
+            .border_style(theme.border_focus())
             .title(Span::styled(
                 format!(" ◆ Port {} Detail ", entry.port),
-                Theme::title(),
+                theme.title(),
             ))
             .title_bottom(Line::from(Span::styled(
                 " ESC to go back │ K to kill │ t for tree ",
-                Theme::muted(),
+                theme.muted(),
             ))),
     );
     f.render_widget(basic, chunks[0]);
+
+    // Sparklines section
+    let mut sparklines_lines = Vec::new();
+
+    if let Some(history) = app.resource_tracker.get(entry.pid) {
+        let cpu_spark_str = sparkline_text(&history.cpu_values(), 40);
+        let mem_spark_str = sparkline_text(&history.memory_values(), 40);
+
+        sparklines_lines.push(Line::from(vec![
+            Span::styled("  📈 CPU    ", theme.muted()),
+            Span::styled(cpu_spark_str, theme.sparkline()),
+            Span::styled(
+                format!(" avg:{:.1}% peak:{:.1}%", history.avg_cpu(), history.peak_cpu()),
+                theme.muted(),
+            ),
+        ]));
+        sparklines_lines.push(Line::from(vec![
+            Span::styled("  📈 Memory ", theme.muted()),
+            Span::styled(mem_spark_str, theme.sparkline()),
+            Span::styled(
+                format!(" avg:{:.0}MB peak:{:.0}MB", history.avg_memory(), history.peak_memory()),
+                theme.muted(),
+            ),
+        ]));
+    } else {
+        sparklines_lines.push(Line::from(Span::styled(
+            "  📈 No resource history yet (collecting...)",
+            theme.muted(),
+        )));
+    }
+
+    let sparklines = Paragraph::new(sparklines_lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(theme.border())
+            .title(Span::styled(" Resource History ", theme.title())),
+    );
+    f.render_widget(sparklines, chunks[1]);
 
     // Extra sections (project, git, docker, health)
     let mut extra_lines = Vec::new();
 
     if let Some(ref project) = entry.project {
-        extra_lines.push(Line::from(Span::styled("  📦 Project", Theme::title())));
+        extra_lines.push(Line::from(Span::styled("  📦 Project", theme.title())));
         extra_lines.push(Line::from(vec![
-            Span::styled("    Kind:      ", Theme::muted()),
+            Span::styled("    Kind:      ", theme.muted()),
             Span::raw(&project.kind),
         ]));
         if !project.framework.is_empty() {
             extra_lines.push(Line::from(vec![
-                Span::styled("    Framework: ", Theme::muted()),
-                Span::styled(&project.framework, Theme::info()),
+                Span::styled("    Framework: ", theme.muted()),
+                Span::styled(&project.framework, theme.info()),
             ]));
         }
         extra_lines.push(Line::from(""));
     }
 
     if let Some(ref git) = entry.git {
-        extra_lines.push(Line::from(Span::styled("  🔀 Git", Theme::title())));
+        extra_lines.push(Line::from(Span::styled("  🔀 Git", theme.title())));
         extra_lines.push(Line::from(vec![
-            Span::styled("    Branch:    ", Theme::muted()),
+            Span::styled("    Branch:    ", theme.muted()),
             Span::styled(
                 &git.branch,
                 if git.dirty {
-                    Theme::git_dirty()
+                    theme.git_dirty()
                 } else {
-                    Theme::git_clean()
+                    theme.git_clean()
                 },
             ),
             if git.dirty {
-                Span::styled(" (modified)", Theme::warning())
+                Span::styled(" (modified)", theme.warning())
             } else {
-                Span::styled(" (clean)", Theme::healthy())
+                Span::styled(" (clean)", theme.healthy())
             },
         ]));
         extra_lines.push(Line::from(""));
     }
 
     if let Some(ref docker) = entry.docker {
-        extra_lines.push(Line::from(Span::styled("  🐳 Docker", Theme::title())));
+        extra_lines.push(Line::from(Span::styled("  🐳 Docker", theme.title())));
         extra_lines.push(Line::from(vec![
-            Span::styled("    Container: ", Theme::muted()),
-            Span::styled(&docker.container_name, Theme::docker()),
+            Span::styled("    Container: ", theme.muted()),
+            Span::styled(&docker.container_name, theme.docker()),
         ]));
         extra_lines.push(Line::from(vec![
-            Span::styled("    Image:     ", Theme::muted()),
+            Span::styled("    Image:     ", theme.muted()),
             Span::raw(&docker.image),
         ]));
         extra_lines.push(Line::from(""));
@@ -339,13 +454,13 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     if let Some(ref health) = entry.health_check {
         extra_lines.push(Line::from(Span::styled(
             "  🏥 Health Check",
-            Theme::title(),
+            theme.title(),
         )));
         extra_lines.push(Line::from(vec![
-            Span::styled("    Status:    ", Theme::muted()),
+            Span::styled("    Status:    ", theme.muted()),
             Span::styled(
                 health.status.to_string(),
-                Theme::status_style(match health.status {
+                theme.status_style(match health.status {
                     crate::models::HealthStatus::Healthy => &Status::Healthy,
                     crate::models::HealthStatus::Unhealthy => &Status::Zombie,
                     crate::models::HealthStatus::Unknown => &Status::Unknown,
@@ -353,7 +468,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             ),
         ]));
         extra_lines.push(Line::from(vec![
-            Span::styled("    Latency:   ", Theme::muted()),
+            Span::styled("    Latency:   ", theme.muted()),
             Span::raw(format!("{}ms", health.latency_ms)),
         ]));
         extra_lines.push(Line::from(""));
@@ -365,13 +480,14 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Theme::border()),
+                .border_style(theme.border()),
         );
-    f.render_widget(extra, chunks[1]);
+    f.render_widget(extra, chunks[2]);
 }
 
 /// Render process tree view.
 fn render_process_tree(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
     let lines: Vec<Line> = app
         .process_tree
         .iter()
@@ -382,23 +498,35 @@ fn render_process_tree(f: &mut Frame, area: Rect, app: &App) {
                 format!("{}├─ ", "│  ".repeat(entry.depth - 1))
             };
 
+            // Get sparkline if we have history
+            let cpu_display = if let Some(history) = app.resource_tracker.get(entry.pid) {
+                if history.samples.len() > 1 {
+                    let spark = sparkline_text(&history.cpu_values(), 6);
+                    format!("CPU: {:.1}% {}", entry.cpu_percent, spark)
+                } else {
+                    format!("CPU: {:.1}%", entry.cpu_percent)
+                }
+            } else {
+                format!("CPU: {:.1}%", entry.cpu_percent)
+            };
+
             Line::from(vec![
-                Span::styled(indent, Theme::border()),
-                Span::styled(entry.name.clone(), Theme::process_name()),
-                Span::styled(format!(" (PID: {})", entry.pid), Theme::muted()),
+                Span::styled(indent, theme.border()),
+                Span::styled(entry.name.clone(), theme.process_name()),
+                Span::styled(format!(" (PID: {})", entry.pid), theme.muted()),
                 Span::raw("  "),
                 Span::styled(
-                    format!("CPU: {:.1}%", entry.cpu_percent),
+                    cpu_display,
                     if entry.cpu_percent > 50.0 {
-                        Theme::warning()
+                        theme.warning()
                     } else {
-                        Theme::muted()
+                        theme.muted()
                     },
                 ),
                 Span::raw("  "),
                 Span::styled(
                     format!("Mem: {:.1}MB", entry.memory_mb.max(0.0)),
-                    Theme::muted(),
+                    theme.muted(),
                 ),
             ])
         })
@@ -408,10 +536,156 @@ fn render_process_tree(f: &mut Frame, area: Rect, app: &App) {
         Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Theme::border_focus())
-            .title(Span::styled(" 🌲 Process Tree ", Theme::title()))
-            .title_bottom(Line::from(Span::styled(" ESC to go back ", Theme::muted()))),
+            .border_style(theme.border_focus())
+            .title(Span::styled(" 🌲 Process Tree ", theme.title()))
+            .title_bottom(Line::from(Span::styled(" ESC to go back ", theme.muted()))),
     );
+    f.render_widget(paragraph, area);
+}
+
+/// Render Processes tab — sorted by CPU usage.
+fn render_processes_tab(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+    
+    // Sort entries by CPU descending for the processes view
+    let mut sorted: Vec<_> = app.entries.iter().collect();
+    sorted.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+
+    let header = Row::new(["PID", "Process", "CPU %", "Memory MB", "Port", "Uptime"])
+        .style(theme.header())
+        .height(1);
+
+    let rows: Vec<Row> = sorted.iter().enumerate().map(|(i, entry)| {
+        let cpu_spark = if let Some(history) = app.resource_tracker.get(entry.pid) {
+            if history.samples.len() > 1 {
+                format!(" {:.1}% {}", entry.cpu_percent, sparkline_text(&history.cpu_values(), 8))
+            } else {
+                format!(" {:.1}%", entry.cpu_percent)
+            }
+        } else {
+            format!(" {:.1}%", entry.cpu_percent)
+        };
+
+        let cells = vec![
+            Cell::from(format!("{}", entry.pid)).style(theme.muted()),
+            Cell::from(entry.process_name.clone()).style(theme.process_name()),
+            Cell::from(cpu_spark).style(if entry.cpu_percent > 50.0 { theme.warning() } else { theme.muted() }),
+            Cell::from(format!("{:.0}", entry.memory_mb.max(0.0))).style(theme.muted()),
+            Cell::from(format!("{}", entry.port)).style(theme.port_number()),
+            Cell::from(entry.uptime_display()).style(theme.muted()),
+        ];
+
+        let style = if i % 2 == 0 { theme.row_normal() } else { theme.row_alt() };
+        Row::new(cells).style(style).height(1)
+    }).collect();
+
+    let table = Table::new(rows, [
+        Constraint::Length(8),
+        Constraint::Min(16),
+        Constraint::Length(18),
+        Constraint::Length(10),
+        Constraint::Length(7),
+        Constraint::Length(9),
+    ])
+    .header(header)
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(theme.border())
+            .title(Span::styled(
+                format!(" ◆ Processes ({}) sorted by CPU ", sorted.len()),
+                theme.title(),
+            )),
+    );
+
+    f.render_widget(table, area);
+}
+
+/// Render Docker tab — shows only Docker containers.
+fn render_docker_tab(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+    
+    let docker_entries: Vec<_> = app.entries.iter().filter(|e| e.docker.is_some()).collect();
+
+    if docker_entries.is_empty() {
+        let paragraph = Paragraph::new("No Docker containers found.")
+            .style(theme.muted())
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(theme.border())
+                    .title(Span::styled(" 🐳 Docker ", theme.title())),
+            );
+        f.render_widget(paragraph, area);
+        return;
+    }
+
+    let header = Row::new(["Container", "Image", "Port", "Status", "Compose"])
+        .style(theme.header())
+        .height(1);
+
+    let rows: Vec<Row> = docker_entries.iter().enumerate().map(|(i, entry)| {
+        let docker = entry.docker.as_ref().unwrap();
+        let cells = vec![
+            Cell::from(docker.container_name.clone()).style(theme.docker()),
+            Cell::from(docker.image.clone()).style(theme.info()),
+            Cell::from(format!("{}", entry.port)).style(theme.port_number()),
+            Cell::from(entry.status.to_string()).style(theme.status_style(&entry.status)),
+            Cell::from(docker.compose_project.as_deref().unwrap_or("—")).style(theme.muted()),
+        ];
+        let style = if i % 2 == 0 { theme.row_normal() } else { theme.row_alt() };
+        Row::new(cells).style(style).height(1)
+    }).collect();
+
+    let table = Table::new(rows, [
+        Constraint::Min(16),
+        Constraint::Min(16),
+        Constraint::Length(7),
+        Constraint::Length(12),
+        Constraint::Min(10),
+    ])
+    .header(header)
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(theme.border())
+            .title(Span::styled(
+                format!(" 🐳 Docker Containers ({}) ", docker_entries.len()),
+                theme.title(),
+            )),
+    );
+
+    f.render_widget(table, area);
+}
+
+fn render_logs_tab(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+
+    let lines: Vec<Line> = if app.activity_log.is_empty() {
+        vec![Line::from(Span::styled(
+            "  No activity yet. Refresh, switch tabs, or run an action to populate the log.",
+            theme.muted(),
+        ))]
+    } else {
+        app.activity_log
+            .iter()
+            .rev()
+            .take(area.height.saturating_sub(2) as usize)
+            .map(|entry| Line::from(Span::styled(format!("  {}", entry), theme.info())))
+            .collect()
+    };
+
+    let paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(theme.border())
+            .title(Span::styled(" 📋 Activity Log ", theme.title())),
+    );
+
     f.render_widget(paragraph, area);
 }
 
@@ -444,5 +718,17 @@ impl SortCol {
                 | (SortCol::Uptime, SortField::Uptime)
                 | (SortCol::Status, SortField::Status)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_table_visible_rows_has_minimum_one() {
+        assert_eq!(table_visible_rows(Rect::new(0, 0, 80, 0)), 1);
+        assert_eq!(table_visible_rows(Rect::new(0, 0, 80, 4)), 1);
+        assert_eq!(table_visible_rows(Rect::new(0, 0, 80, 12)), 8);
     }
 }

@@ -29,3 +29,12 @@ fn test_ssh_reverse_tunnel_detection() {
     assert!(tunnel.is_some());
     assert_eq!(tunnel.unwrap().kind, "ssh");
 }
+
+#[test]
+fn test_tailscale_funnel_detection() {
+    let tunnel = detect_tunnel("tailscale", "tailscale funnel 3000");
+    assert!(tunnel.is_some());
+    let info = tunnel.unwrap();
+    assert_eq!(info.kind, "tailscale");
+    assert_eq!(info.public_url.as_deref(), Some("Tailscale Funnel"));
+}

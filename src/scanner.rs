@@ -4,6 +4,7 @@ use crate::docker;
 use crate::error::Result;
 use crate::git;
 use crate::health;
+use crate::health::HealthCheckType;
 use crate::models::*;
 use crate::project;
 use crate::tunnel;
@@ -205,25 +206,13 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
 
     for entry in entries.iter() {
         let port = entry.port;
-        let framework = entry
-            .project
-            .as_ref()
-            .map(|p| p.framework.to_lowercase())
-            .unwrap_or_default();
-
-        // Determine which endpoint to try
-        let endpoint = config
-            .health
-            .framework_endpoints
-            .get(&framework)
-            .cloned()
-            .unwrap_or_else(|| "/health".to_string());
+        let (check_type, endpoint) = resolve_health_strategy(entry, config);
 
         let timeout = timeout_ms;
         let sem_permit = semaphore.clone().acquire_owned().await.unwrap();
 
         handles.push(tokio::spawn(async move {
-            let result = health::check_health(port, &endpoint, timeout).await;
+            let result = health::check_health_typed(port, check_type, &endpoint, timeout).await;
             drop(sem_permit); // Release permit when done
             (port, result)
         }));
@@ -245,6 +234,82 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
                     }
                 }
             }
+        }
+    }
+}
+
+fn resolve_health_strategy(entry: &PortEntry, config: &PortForgeConfig) -> (HealthCheckType, String) {
+    let framework = entry
+        .project
+        .as_ref()
+        .map(|p| p.framework.to_lowercase())
+        .unwrap_or_default();
+    let process_name = entry.process_name.to_lowercase();
+    let command = entry.command.to_lowercase();
+
+    if let Some(port_override) = config.ports.get(&entry.port) {
+        if let Some(endpoint) = &port_override.health_endpoint {
+            return parse_health_endpoint(endpoint);
+        }
+    }
+
+    if let Some(endpoint) = config.health.framework_endpoints.get(&framework) {
+        return parse_health_endpoint(endpoint);
+    }
+
+    if command.contains("grpc") || process_name.contains("grpc") || framework.contains("grpc") {
+        return (HealthCheckType::Grpc, "gRPC".to_string());
+    }
+
+    if command.contains("websocket")
+        || command.contains("ws://")
+        || command.contains("socket.io")
+        || process_name.contains("websocket")
+        || framework.contains("socket")
+    {
+        return (HealthCheckType::WebSocket, "WebSocket".to_string());
+    }
+
+    let endpoint = config
+        .health
+        .default_endpoints
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "/health".to_string());
+
+    (HealthCheckType::Http, endpoint)
+}
+
+fn parse_health_endpoint(endpoint: &str) -> (HealthCheckType, String) {
+    let trimmed = endpoint.trim();
+    if let Some(value) = trimmed.strip_prefix("grpc:") {
+        return (HealthCheckType::Grpc, value.trim().trim_start_matches('/').to_string().if_empty("gRPC"));
+    }
+    if let Some(value) = trimmed.strip_prefix("grpc://") {
+        return (HealthCheckType::Grpc, value.trim().to_string().if_empty("gRPC"));
+    }
+    if let Some(value) = trimmed.strip_prefix("ws:") {
+        return (HealthCheckType::WebSocket, value.trim().trim_start_matches('/').to_string().if_empty("WebSocket"));
+    }
+    if let Some(value) = trimmed.strip_prefix("websocket:") {
+        return (HealthCheckType::WebSocket, value.trim().trim_start_matches('/').to_string().if_empty("WebSocket"));
+    }
+    if let Some(value) = trimmed.strip_prefix("ws://") {
+        return (HealthCheckType::WebSocket, value.trim().to_string().if_empty("WebSocket"));
+    }
+    (HealthCheckType::Http, trimmed.to_string())
+}
+
+trait NonEmptyString {
+    fn if_empty(self, fallback: &str) -> String;
+}
+
+impl NonEmptyString for String {
+    fn if_empty(self, fallback: &str) -> String {
+        if self.is_empty() {
+            fallback.to_string()
+        } else {
+            self
         }
     }
 }
@@ -276,4 +341,66 @@ pub fn sort_entries(entries: &mut [PortEntry], field: SortField, direction: Sort
             SortDirection::Descending => ordering.reverse(),
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::PortForgeConfig;
+
+    fn entry_with_command(port: u16, process_name: &str, command: &str) -> PortEntry {
+        PortEntry {
+            port,
+            protocol: Protocol::Tcp,
+            pid: port as u32,
+            process_name: process_name.to_string(),
+            command: command.to_string(),
+            cwd: None,
+            memory_mb: 0.0,
+            cpu_percent: 0.0,
+            uptime_secs: 0,
+            project: None,
+            docker: None,
+            git: None,
+            tunnel: None,
+            status: Status::Unknown,
+            health_check: None,
+        }
+    }
+
+    #[test]
+    fn test_resolve_health_strategy_uses_port_override_prefix() {
+        let mut config = PortForgeConfig::default();
+        config.ports.insert(
+            50051,
+            crate::config::PortOverride {
+                label: None,
+                health_endpoint: Some("grpc:".to_string()),
+                hidden: false,
+            },
+        );
+
+        let entry = entry_with_command(50051, "server", "server --port 50051");
+        let (kind, endpoint) = resolve_health_strategy(&entry, &config);
+
+        assert_eq!(kind, HealthCheckType::Grpc);
+        assert_eq!(endpoint, "gRPC");
+    }
+
+    #[test]
+    fn test_resolve_health_strategy_detects_websocket_from_command() {
+        let config = PortForgeConfig::default();
+        let entry = entry_with_command(3001, "node", "node websocket-server.js --port 3001");
+        let (kind, endpoint) = resolve_health_strategy(&entry, &config);
+
+        assert_eq!(kind, HealthCheckType::WebSocket);
+        assert_eq!(endpoint, "WebSocket");
+    }
+
+    #[test]
+    fn test_parse_health_endpoint_preserves_http_paths() {
+        let (kind, endpoint) = parse_health_endpoint("/readyz");
+        assert_eq!(kind, HealthCheckType::Http);
+        assert_eq!(endpoint, "/readyz");
+    }
 }

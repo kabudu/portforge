@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD033 MD036 MD041 -->
+
 <div align="center">
 
 <img src="docs/assets/logo.png" alt="PortForge logo" width="120" />
@@ -108,8 +110,14 @@ portforge serve --port 9090
 | `/`           | Search / filter                  |
 | `a`           | Toggle all / dev ports           |
 | `1`-`8`       | Sort by column                   |
+| `Tab`         | Next tab                         |
+| `Shift+Tab`   | Previous tab                     |
+| `T`           | Cycle theme                      |
+| `m`           | Toggle mouse support             |
 | `?`           | Help overlay                     |
 | `q` / `Esc`   | Quit / go back                   |
+
+While the search bar is open, `j` and `k` continue moving through the filtered result set.
 
 ## 🌐 Web Dashboard
 
@@ -156,17 +164,35 @@ timeout_ms = 2000             # Health check timeout
 "rails" = "/up"
 "spring" = "/actuator/health"
 "django" = "/health/"
+"my-grpc-service" = "grpc:"          # TCP connect check
+"my-websocket-app" = "ws:"           # TCP connect check
 
 # Per-port overrides
 # [ports.3000]
 # label = "My Frontend"
 # health_endpoint = "/api/status"
 # hidden = false
+
+# [ports.50051]
+# label = "Local gRPC API"
+# health_endpoint = "grpc:"
+# hidden = false
+
+# [ports.3001]
+# label = "Socket Server"
+# health_endpoint = "ws:"
+# hidden = false
 ```
+
+Health endpoint prefixes:
+
+- `grpc:` or `grpc://` uses a TCP connection check instead of HTTP for gRPC-style services.
+- `ws:`, `ws://`, or `websocket:` uses a TCP connection check instead of HTTP for WebSocket-style services.
+- Plain values like `/health` continue to use normal HTTP probing.
 
 ## 🏗️ Architecture
 
-```
+```text
 portforge/
 ├── src/
 │   ├── main.rs          # CLI entry point

@@ -3,6 +3,7 @@ use portforge::cli::{Cli, Commands, ExportFormat};
 use portforge::config::PortForgeConfig;
 use portforge::error::Result;
 use portforge::export;
+use portforge::port_utils;
 use portforge::process;
 use portforge::scanner;
 use portforge::tui::app::App;
@@ -138,6 +139,46 @@ async fn main() -> Result<()> {
                     println!("✓ Exported {} entries to {}", entries.len(), path);
                 }
                 None => print!("{}", content),
+            }
+        }
+
+        Some(Commands::Free { start, count }) => {
+            let free_ports = port_utils::find_free_ports(start, count);
+            if free_ports.is_empty() {
+                eprintln!("⚠ No free ports found starting from {}", start);
+                std::process::exit(1);
+            } else if count == 1 {
+                println!("{}", free_ports[0]);
+            } else {
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&free_ports)?);
+                } else {
+                    println!("Free ports starting from {}:", start);
+                    for port in &free_ports {
+                        println!("  {}", port);
+                    }
+                }
+            }
+        }
+
+        Some(Commands::Conflicts { port }) => {
+            let conflicts = port_utils::detect_conflicts(&config).await?;
+            let filtered: Vec<_> = match port {
+                Some(p) => conflicts.into_iter().filter(|c| c.port == p).collect(),
+                None => conflicts,
+            };
+
+            if filtered.is_empty() {
+                println!("✓ No port conflicts detected.");
+            } else {
+                for conflict in &filtered {
+                    println!("Port {}/{}:", conflict.port, conflict.protocol);
+                    for (i, proc) in conflict.processes.iter().enumerate() {
+                        println!("  {}. PID {} - {} ({})", i + 1, proc.pid, proc.name, proc.command);
+                    }
+                    println!("  Suggestion: {}", conflict.suggestion);
+                    println!();
+                }
             }
         }
 

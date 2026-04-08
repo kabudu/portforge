@@ -36,19 +36,19 @@ This document outlines the planned development phases for PortForge.
 
 ---
 
-## 🔜 Phase 2: Intelligence (v0.2.0)
+## ✅ Phase 2: Intelligence (v0.2.0)
 
 > Smarter detection, better UX, and developer workflow integration.
 
-- [ ] Tunnel detection (ngrok, cloudflared, localtunnel, Tailscale Funnel)
-- [ ] Auto-suggest free ports (`portforge free 3000`)
-- [ ] Port conflict detection and resolution suggestions  
-- [ ] gRPC health check support
-- [ ] WebSocket health check support
-- [ ] Process resource history (sparkline graphs in TUI)
-- [ ] TUI mouse support (click to select, scroll)
-- [ ] Custom color themes (light mode, solarized, etc.)
-- [ ] Tab-based TUI views (ports, processes, docker, logs)
+- [x] Tunnel detection (ngrok, cloudflared, localtunnel, Tailscale Funnel) — _done in v0.1.1_
+- [x] Auto-suggest free ports (`portforge free <port>`)
+- [x] Port conflict detection and resolution suggestions (`portforge conflicts`)
+- [x] gRPC health check support (TCP connection check; configurable via `grpc:` / `grpc://` health endpoint prefixes)
+- [x] WebSocket health check support (TCP connection check; configurable via `ws:`, `ws://`, or `websocket:` health endpoint prefixes)
+- [x] Process resource history (sparkline graphs in TUI — detail view and Processes tab)
+- [x] TUI mouse support (click to select, scroll wheel, toggle with `m` key)
+- [x] Custom color themes (dark, light, solarized, nord, dracula — cycle with `T` key)
+- [x] Tab-based TUI views (Ports, Processes, Docker, Activity Log — navigate with `Tab`/`Shift+Tab`)
 
 ---
 
