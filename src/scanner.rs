@@ -97,6 +97,11 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
             let port = listener.socket.port();
             let pid = listener.process.pid;
 
+            if should_skip_listener_pid(pid) {
+                debug!("Skipping pseudo-process listener on port {} with PID {}", port, pid);
+                continue;
+            }
+
             let sysinfo_pid = Pid::from_u32(pid);
             let proc_info = sys.process(sysinfo_pid);
 
@@ -175,6 +180,10 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 
     debug!("Scan complete: {} entries", entries.len());
     Ok(entries)
+}
+
+fn should_skip_listener_pid(pid: u32) -> bool {
+    pid == 0
 }
 
 /// Determines the status of a port entry based on process existence and enrichment data.
@@ -432,5 +441,12 @@ mod tests {
         let (kind, endpoint) = parse_health_endpoint("/readyz");
         assert_eq!(kind, HealthCheckType::Http);
         assert_eq!(endpoint, "/readyz");
+    }
+
+    #[test]
+    fn test_should_skip_listener_pid_filters_pid_zero() {
+        assert!(should_skip_listener_pid(0));
+        assert!(!should_skip_listener_pid(1));
+        assert!(!should_skip_listener_pid(4242));
     }
 }
