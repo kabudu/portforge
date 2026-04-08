@@ -98,7 +98,10 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
             let pid = listener.process.pid;
 
             if should_skip_listener_pid(pid) {
-                debug!("Skipping pseudo-process listener on port {} with PID {}", port, pid);
+                debug!(
+                    "Skipping pseudo-process listener on port {} with PID {}",
+                    port, pid
+                );
                 continue;
             }
 
