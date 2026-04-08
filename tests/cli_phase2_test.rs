@@ -76,10 +76,10 @@ fn test_conflicts_help() {
 }
 
 #[test]
-fn test_version_shows_0_2_0() {
+fn test_version_shows_package_version() {
     let mut cmd = Command::cargo_bin("portforge").unwrap();
     cmd.arg("--version");
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("0.2.0"));
+    .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
 }
