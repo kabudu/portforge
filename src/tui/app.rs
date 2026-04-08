@@ -12,7 +12,9 @@ use crossterm::{
         MouseEvent, MouseEventKind,
     },
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode, size},
+    terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode, size,
+    },
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::collections::VecDeque;
@@ -136,7 +138,7 @@ pub struct App {
 impl App {
     pub fn new(config: PortForgeConfig, show_all: bool) -> Self {
         let refresh = config.general.refresh_interval;
-        let theme_name = ThemeName::from_str(&config.general.theme);
+        let theme_name = config.general.theme.parse().unwrap_or(ThemeName::Dark);
         Self {
             config,
             show_all,
@@ -172,7 +174,10 @@ impl App {
     /// Cycle to the next theme.
     pub fn next_theme(&mut self) {
         let all = ThemeName::all();
-        let current_idx = all.iter().position(|t| *t == self.theme.name()).unwrap_or(0);
+        let current_idx = all
+            .iter()
+            .position(|t| *t == self.theme.name())
+            .unwrap_or(0);
         let next_idx = (current_idx + 1) % all.len();
         self.theme = Theme::new(all[next_idx]);
         self.set_status(format!("Theme: {}", self.theme.name().as_str()));
@@ -272,7 +277,8 @@ impl App {
 
     /// Collect resource samples for all entries.
     fn collect_resource_samples(&mut self) {
-        let entries: Vec<(u32, f32, f64)> = self.entries
+        let entries: Vec<(u32, f32, f64)> = self
+            .entries
             .iter()
             .filter(|entry| {
                 self.resource_tracker
@@ -283,15 +289,18 @@ impl App {
             .map(|e| (e.pid, e.cpu_percent, e.memory_mb))
             .collect();
         self.resource_tracker.record_batch(&entries);
-        
+
         // Prune old histories
-        let active_pids: std::collections::HashSet<u32> = self.entries.iter().map(|e| e.pid).collect();
+        let active_pids: std::collections::HashSet<u32> =
+            self.entries.iter().map(|e| e.pid).collect();
         self.resource_tracker.prune(&active_pids);
     }
 
     /// Handle mouse events.
     fn handle_mouse_event(&mut self, mouse: MouseEvent) {
-        if self.active_tab != Tab::Ports || !matches!(self.view_mode, ViewMode::Table | ViewMode::Search) {
+        if self.active_tab != Tab::Ports
+            || !matches!(self.view_mode, ViewMode::Table | ViewMode::Search)
+        {
             return;
         }
 
@@ -304,11 +313,9 @@ impl App {
             }
             MouseEventKind::Down(crossterm::event::MouseButton::Left) => {
                 if let Ok((_, terminal_rows)) = size() {
-                    if let Some(clicked_row) = clicked_table_index(
-                        mouse.row,
-                        terminal_rows,
-                        self.table_scroll_offset,
-                    ) {
+                    if let Some(clicked_row) =
+                        clicked_table_index(mouse.row, terminal_rows, self.table_scroll_offset)
+                    {
                         self.handle_table_click(clicked_row, Instant::now());
                     }
                 }
@@ -325,7 +332,9 @@ impl App {
         let is_double_click = self
             .last_table_click
             .as_ref()
-            .map(|(last_row, last_at)| *last_row == clicked_row && now.duration_since(*last_at) <= DOUBLE_CLICK_WINDOW)
+            .map(|(last_row, last_at)| {
+                *last_row == clicked_row && now.duration_since(*last_at) <= DOUBLE_CLICK_WINDOW
+            })
             .unwrap_or(false);
 
         self.selected = clicked_row;
@@ -428,7 +437,8 @@ impl App {
         if self.activity_log.len() >= 128 {
             self.activity_log.pop_front();
         }
-        self.activity_log.push_back(format!("[{}] {}", timestamp, message));
+        self.activity_log
+            .push_back(format!("[{}] {}", timestamp, message));
     }
 
     /// Handle keyboard input.
@@ -549,7 +559,11 @@ impl App {
                 self.mouse_enabled = !self.mouse_enabled;
                 self.set_status(format!(
                     "Mouse {}",
-                    if self.mouse_enabled { "enabled" } else { "disabled" }
+                    if self.mouse_enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
                 ));
             }
 
@@ -831,7 +845,8 @@ mod tests {
         app.view_mode = ViewMode::Detail;
         app.modal_return_view = ViewMode::Detail;
 
-        app.handle_kill_confirm_keys(KeyEvent::from(KeyCode::Esc)).await;
+        app.handle_kill_confirm_keys(KeyEvent::from(KeyCode::Esc))
+            .await;
 
         assert_eq!(app.view_mode, ViewMode::Detail);
     }

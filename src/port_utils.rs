@@ -7,12 +7,7 @@ use std::net::TcpListener;
 /// Find a free port starting from the given port number.
 /// Checks if the port is available by attempting to bind to it.
 pub fn find_free_port(start_port: u16) -> Option<u16> {
-    for port in start_port..=65535 {
-        if is_port_free(port) {
-            return Some(port);
-        }
-    }
-    None
+    (start_port..=65535).find(|&port| is_port_free(port))
 }
 
 /// Check if a port is free by attempting to bind to it.
@@ -43,7 +38,8 @@ pub fn find_free_ports(start_port: u16, count: usize) -> Vec<u16> {
 pub async fn detect_conflicts(config: &PortForgeConfig) -> Result<Vec<PortConflict>> {
     let _ = config;
     let mut conflicts = Vec::new();
-    let listeners = listeners::get_all().map_err(|e| crate::error::PortForgeError::ScanError(e.to_string()))?;
+    let listeners =
+        listeners::get_all().map_err(|e| crate::error::PortForgeError::ScanError(e.to_string()))?;
 
     // Group distinct processes by protocol + port so TCP/UDP listeners don't report false conflicts.
     let mut port_map: HashMap<(u16, Protocol), HashMap<u32, ProcessInfo>> = HashMap::new();
@@ -98,7 +94,11 @@ pub struct PortConflict {
 }
 
 /// Generate a suggestion for resolving a port conflict.
-fn generate_conflict_suggestion(port: u16, protocol: Protocol, processes: &[ProcessInfo]) -> String {
+fn generate_conflict_suggestion(
+    port: u16,
+    protocol: Protocol,
+    processes: &[ProcessInfo],
+) -> String {
     if processes.is_empty() {
         return "No processes found.".to_string();
     }
@@ -106,10 +106,7 @@ fn generate_conflict_suggestion(port: u16, protocol: Protocol, processes: &[Proc
     if processes.len() == 1 {
         return format!(
             "Port {}/{} is used by PID {} ({})",
-            port,
-            protocol,
-            processes[0].pid,
-            processes[0].name
+            port, protocol, processes[0].pid, processes[0].name
         );
     }
 
@@ -134,9 +131,12 @@ fn generate_conflict_suggestion(port: u16, protocol: Protocol, processes: &[Proc
     }
 
     // Suggest killing all but one
-    suggestion.push_str(&format!("\nSuggestion: Keep one process and kill the rest.\n"));
-    suggestion.push_str(&format!("  Run: portforge kill {} (to kill the first one)\n", port));
-    
+    suggestion.push_str("\nSuggestion: Keep one process and kill the rest.\n");
+    suggestion.push_str(&format!(
+        "  Run: portforge kill {} (to kill the first one)\n",
+        port
+    ));
+
     // Suggest alternative ports
     if let Some(free_port) = find_free_port(port + 1) {
         suggestion.push_str(&format!("  Or use free port {} instead.", free_port));
@@ -146,7 +146,10 @@ fn generate_conflict_suggestion(port: u16, protocol: Protocol, processes: &[Proc
 }
 
 /// Check if a specific port has conflicts.
-pub async fn check_port_conflict(port: u16, config: &PortForgeConfig) -> Result<Option<PortConflict>> {
+pub async fn check_port_conflict(
+    port: u16,
+    config: &PortForgeConfig,
+) -> Result<Option<PortConflict>> {
     let conflicts = detect_conflicts(config).await?;
     Ok(conflicts.into_iter().find(|c| c.port == port))
 }
@@ -154,8 +157,8 @@ pub async fn check_port_conflict(port: u16, config: &PortForgeConfig) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{HealthResult, HealthStatus, Status};
     use crate::models::PortEntry;
+    use crate::models::{HealthResult, HealthStatus, Status};
     use std::path::PathBuf;
 
     #[test]
@@ -171,7 +174,7 @@ mod tests {
     fn test_find_free_ports() {
         let ports = find_free_ports(8000, 5);
         assert_eq!(ports.len(), 5);
-        
+
         // Verify all ports are unique
         let mut unique = ports.clone();
         unique.sort();

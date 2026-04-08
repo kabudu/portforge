@@ -74,12 +74,18 @@ impl ProcessHistory {
 
     /// Get the peak CPU value.
     pub fn peak_cpu(&self) -> f32 {
-        self.samples.iter().map(|s| s.cpu_percent).fold(0.0f32, f32::max)
+        self.samples
+            .iter()
+            .map(|s| s.cpu_percent)
+            .fold(0.0f32, f32::max)
     }
 
     /// Get the peak memory value.
     pub fn peak_memory(&self) -> f64 {
-        self.samples.iter().map(|s| s.memory_mb).fold(0.0f64, f64::max)
+        self.samples
+            .iter()
+            .map(|s| s.memory_mb)
+            .fold(0.0f64, f64::max)
     }
 
     /// Returns true if we should collect a new sample (based on interval).
@@ -106,7 +112,10 @@ impl ResourceTracker {
 
     /// Record a sample for a process. Creates history if needed.
     pub fn record(&mut self, pid: u32, cpu_percent: f32, memory_mb: f64) {
-        let history = self.histories.entry(pid).or_insert_with(|| ProcessHistory::new(pid));
+        let history = self
+            .histories
+            .entry(pid)
+            .or_insert_with(|| ProcessHistory::new(pid));
         history.push(cpu_percent, memory_mb);
     }
 
@@ -152,7 +161,7 @@ pub fn sparkline_text(values: &[u64], width: usize) -> String {
     }
 
     let blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    
+
     // Sample or pad to desired width
     let sampled: Vec<u64> = if values.len() <= width {
         let mut v = values.to_vec();
@@ -188,7 +197,7 @@ mod tests {
     fn test_process_history() {
         let mut history = ProcessHistory::new(1234);
         assert!(history.should_sample());
-        
+
         history.push(10.0, 100.0);
         history.push(20.0, 150.0);
         history.push(15.0, 120.0);
@@ -220,7 +229,7 @@ mod tests {
         let values = vec![0, 10, 50, 100];
         let spark = sparkline_text(&values, 4);
         assert_eq!(spark.chars().count(), 4);
-        
+
         // Empty case
         let empty = sparkline_text(&[], 4);
         assert_eq!(empty, "    ");

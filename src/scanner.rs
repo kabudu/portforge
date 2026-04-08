@@ -238,7 +238,10 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
     }
 }
 
-fn resolve_health_strategy(entry: &PortEntry, config: &PortForgeConfig) -> (HealthCheckType, String) {
+fn resolve_health_strategy(
+    entry: &PortEntry,
+    config: &PortForgeConfig,
+) -> (HealthCheckType, String) {
     let framework = entry
         .project
         .as_ref()
@@ -283,19 +286,46 @@ fn resolve_health_strategy(entry: &PortEntry, config: &PortForgeConfig) -> (Heal
 fn parse_health_endpoint(endpoint: &str) -> (HealthCheckType, String) {
     let trimmed = endpoint.trim();
     if let Some(value) = trimmed.strip_prefix("grpc:") {
-        return (HealthCheckType::Grpc, value.trim().trim_start_matches('/').to_string().if_empty("gRPC"));
+        return (
+            HealthCheckType::Grpc,
+            value
+                .trim()
+                .trim_start_matches('/')
+                .to_string()
+                .if_empty("gRPC"),
+        );
     }
     if let Some(value) = trimmed.strip_prefix("grpc://") {
-        return (HealthCheckType::Grpc, value.trim().to_string().if_empty("gRPC"));
+        return (
+            HealthCheckType::Grpc,
+            value.trim().to_string().if_empty("gRPC"),
+        );
     }
     if let Some(value) = trimmed.strip_prefix("ws:") {
-        return (HealthCheckType::WebSocket, value.trim().trim_start_matches('/').to_string().if_empty("WebSocket"));
+        return (
+            HealthCheckType::WebSocket,
+            value
+                .trim()
+                .trim_start_matches('/')
+                .to_string()
+                .if_empty("WebSocket"),
+        );
     }
     if let Some(value) = trimmed.strip_prefix("websocket:") {
-        return (HealthCheckType::WebSocket, value.trim().trim_start_matches('/').to_string().if_empty("WebSocket"));
+        return (
+            HealthCheckType::WebSocket,
+            value
+                .trim()
+                .trim_start_matches('/')
+                .to_string()
+                .if_empty("WebSocket"),
+        );
     }
     if let Some(value) = trimmed.strip_prefix("ws://") {
-        return (HealthCheckType::WebSocket, value.trim().to_string().if_empty("WebSocket"));
+        return (
+            HealthCheckType::WebSocket,
+            value.trim().to_string().if_empty("WebSocket"),
+        );
     }
     (HealthCheckType::Http, trimmed.to_string())
 }

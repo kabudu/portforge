@@ -1,5 +1,6 @@
 use ratatui::style::{Color, Modifier, Style};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// Available theme names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -12,16 +13,6 @@ pub enum ThemeName {
 }
 
 impl ThemeName {
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "light" => ThemeName::Light,
-            "solarized" => ThemeName::Solarized,
-            "nord" => ThemeName::Nord,
-            "dracula" => ThemeName::Dracula,
-            _ => ThemeName::Dark,
-        }
-    }
-
     pub fn as_str(&self) -> &'static str {
         match self {
             ThemeName::Dark => "dark",
@@ -40,6 +31,21 @@ impl ThemeName {
             ThemeName::Nord,
             ThemeName::Dracula,
         ]
+    }
+}
+
+impl FromStr for ThemeName {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "dark" => Ok(ThemeName::Dark),
+            "light" => Ok(ThemeName::Light),
+            "solarized" => Ok(ThemeName::Solarized),
+            "nord" => Ok(ThemeName::Nord),
+            "dracula" => Ok(ThemeName::Dracula),
+            _ => Err(()),
+        }
     }
 }
 
@@ -217,12 +223,24 @@ impl Theme {
 
     // ─── Color accessors ───
 
-    pub const fn bg_primary(&self) -> Color { self.palette.bg_primary }
-    pub const fn bg_surface(&self) -> Color { self.palette.bg_surface }
-    pub const fn bg_highlight(&self) -> Color { self.palette.bg_highlight }
-    pub const fn bg_overlay(&self) -> Color { self.palette.bg_overlay }
-    pub const fn border_color(&self) -> Color { self.palette.border }
-    pub const fn border_focus_color(&self) -> Color { self.palette.border_focus }
+    pub const fn bg_primary(&self) -> Color {
+        self.palette.bg_primary
+    }
+    pub const fn bg_surface(&self) -> Color {
+        self.palette.bg_surface
+    }
+    pub const fn bg_highlight(&self) -> Color {
+        self.palette.bg_highlight
+    }
+    pub const fn bg_overlay(&self) -> Color {
+        self.palette.bg_overlay
+    }
+    pub const fn border_color(&self) -> Color {
+        self.palette.border
+    }
+    pub const fn border_focus_color(&self) -> Color {
+        self.palette.border_focus
+    }
 
     // ─── Semantic Styles ───
 
@@ -251,7 +269,9 @@ impl Theme {
     }
 
     pub fn row_alt(&self) -> Style {
-        Style::default().fg(self.palette.text_primary).bg(self.palette.bg_surface)
+        Style::default()
+            .fg(self.palette.text_primary)
+            .bg(self.palette.bg_surface)
     }
 
     pub fn healthy(&self) -> Style {
@@ -376,13 +396,13 @@ mod tests {
 
     #[test]
     fn test_theme_name_from_str() {
-        assert_eq!(ThemeName::from_str("dark"), ThemeName::Dark);
-        assert_eq!(ThemeName::from_str("light"), ThemeName::Light);
-        assert_eq!(ThemeName::from_str("solarized"), ThemeName::Solarized);
-        assert_eq!(ThemeName::from_str("nord"), ThemeName::Nord);
-        assert_eq!(ThemeName::from_str("dracula"), ThemeName::Dracula);
-        assert_eq!(ThemeName::from_str("unknown"), ThemeName::Dark);
-        assert_eq!(ThemeName::from_str("DARK"), ThemeName::Dark);
+        assert_eq!("dark".parse::<ThemeName>(), Ok(ThemeName::Dark));
+        assert_eq!("light".parse::<ThemeName>(), Ok(ThemeName::Light));
+        assert_eq!("solarized".parse::<ThemeName>(), Ok(ThemeName::Solarized));
+        assert_eq!("nord".parse::<ThemeName>(), Ok(ThemeName::Nord));
+        assert_eq!("dracula".parse::<ThemeName>(), Ok(ThemeName::Dracula));
+        assert_eq!("unknown".parse::<ThemeName>(), Err(()));
+        assert_eq!("DARK".parse::<ThemeName>(), Ok(ThemeName::Dark));
     }
 
     #[test]
@@ -462,7 +482,7 @@ mod tests {
 
         // Dark and light should have very different backgrounds
         assert_ne!(dark.bg_primary, light.bg_primary);
-        
+
         // All themes should have different primary backgrounds
         let bgs = [
             dark.bg_primary,
@@ -472,6 +492,10 @@ mod tests {
             dracula.bg_primary,
         ];
         let unique_bgs: std::collections::HashSet<_> = bgs.iter().collect();
-        assert_eq!(unique_bgs.len(), 5, "All themes should have distinct background colors");
+        assert_eq!(
+            unique_bgs.len(),
+            5,
+            "All themes should have distinct background colors"
+        );
     }
 }

@@ -174,7 +174,13 @@ async fn main() -> Result<()> {
                 for conflict in &filtered {
                     println!("Port {}/{}:", conflict.port, conflict.protocol);
                     for (i, proc) in conflict.processes.iter().enumerate() {
-                        println!("  {}. PID {} - {} ({})", i + 1, proc.pid, proc.name, proc.command);
+                        println!(
+                            "  {}. PID {} - {} ({})",
+                            i + 1,
+                            proc.pid,
+                            proc.name,
+                            proc.command
+                        );
                     }
                     println!("  Suggestion: {}", conflict.suggestion);
                     println!();

@@ -201,7 +201,10 @@ pub fn render_help_overlay(f: &mut Frame, area: Rect, theme: &Theme) {
         Line::from(Span::styled("  Appearance", theme.title())),
         Line::from(vec![
             Span::styled("    T          ", theme.key_hint()),
-            Span::styled("Cycle theme (dark/light/solarized/nord/dracula)", theme.muted()),
+            Span::styled(
+                "Cycle theme (dark/light/solarized/nord/dracula)",
+                theme.muted(),
+            ),
         ]),
         Line::from(vec![
             Span::styled("    m          ", theme.key_hint()),

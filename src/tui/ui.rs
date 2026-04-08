@@ -13,7 +13,7 @@ use ratatui::{
 /// Main render function — dispatches to the current view.
 pub fn render(f: &mut Frame, app: &App) {
     let theme = &app.theme;
-    
+
     // Main background
     let area = f.area();
     f.render_widget(
@@ -40,14 +40,12 @@ pub fn render(f: &mut Frame, app: &App) {
 
     // Content area based on active tab
     match app.active_tab {
-        Tab::Ports => {
-            match app.view_mode {
-                ViewMode::Table | ViewMode::Search => render_table(f, chunks[2], app),
-                ViewMode::Detail => render_detail(f, chunks[2], app),
-                ViewMode::ProcessTree => render_process_tree(f, chunks[2], app),
-                _ => render_table(f, chunks[2], app),
-            }
-        }
+        Tab::Ports => match app.view_mode {
+            ViewMode::Table | ViewMode::Search => render_table(f, chunks[2], app),
+            ViewMode::Detail => render_detail(f, chunks[2], app),
+            ViewMode::ProcessTree => render_process_tree(f, chunks[2], app),
+            _ => render_table(f, chunks[2], app),
+        },
         Tab::Processes => render_processes_tab(f, chunks[2], app),
         Tab::Docker => render_docker_tab(f, chunks[2], app),
         Tab::Logs => render_logs_tab(f, chunks[2], app),
@@ -73,20 +71,17 @@ pub fn render(f: &mut Frame, app: &App) {
 fn render_tab_bar(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.theme;
     let tabs = [Tab::Ports, Tab::Processes, Tab::Docker, Tab::Logs];
-    
-    let spans: Vec<Span> = tabs.iter().map(|tab| {
-        if *tab == app.active_tab {
-            Span::styled(
-                format!(" {} ", tab.label()),
-                theme.tab_active(),
-            )
-        } else {
-            Span::styled(
-                format!(" {} ", tab.label()),
-                theme.tab_inactive(),
-            )
-        }
-    }).collect();
+
+    let spans: Vec<Span> = tabs
+        .iter()
+        .map(|tab| {
+            if *tab == app.active_tab {
+                Span::styled(format!(" {} ", tab.label()), theme.tab_active())
+            } else {
+                Span::styled(format!(" {} ", tab.label()), theme.tab_inactive())
+            }
+        })
+        .collect();
 
     let mut line_spans = vec![Span::raw("  ")];
     for (i, span) in spans.into_iter().enumerate() {
@@ -96,15 +91,14 @@ fn render_tab_bar(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    let bar = Paragraph::new(Line::from(line_spans))
-        .style(Style::default().bg(theme.bg_surface()));
+    let bar = Paragraph::new(Line::from(line_spans)).style(Style::default().bg(theme.bg_surface()));
     f.render_widget(bar, area);
 }
 
 /// Render the main port table.
 fn render_table(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.theme;
-    
+
     if app.entries.is_empty() && !app.loading {
         let msg = if app.show_all {
             "No listening ports found."
@@ -209,13 +203,11 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                 Cell::from(entry.tunnel_display()).style(theme.tunnel()),
                 Cell::from(entry.docker_display()).style(theme.docker()),
                 Cell::from(entry.uptime_display()).style(theme.muted()),
-                Cell::from(cpu_display).style(
-                    if entry.cpu_percent > 50.0 {
-                        theme.warning()
-                    } else {
-                        theme.muted()
-                    },
-                ),
+                Cell::from(cpu_display).style(if entry.cpu_percent > 50.0 {
+                    theme.warning()
+                } else {
+                    theme.muted()
+                }),
                 Cell::from(format!("{:.0}MB", entry.memory_mb.max(0.0))).style(theme.muted()),
                 Cell::from(entry.status.to_string()).style(status_style),
             ];
@@ -307,9 +299,9 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(8),  // Basic info
-            Constraint::Length(5),  // Sparklines
-            Constraint::Min(4),     // Extra sections
+            Constraint::Length(8), // Basic info
+            Constraint::Length(5), // Sparklines
+            Constraint::Min(4),    // Extra sections
         ])
         .split(area);
 
@@ -371,7 +363,11 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("  📈 CPU    ", theme.muted()),
             Span::styled(cpu_spark_str, theme.sparkline()),
             Span::styled(
-                format!(" avg:{:.1}% peak:{:.1}%", history.avg_cpu(), history.peak_cpu()),
+                format!(
+                    " avg:{:.1}% peak:{:.1}%",
+                    history.avg_cpu(),
+                    history.peak_cpu()
+                ),
                 theme.muted(),
             ),
         ]));
@@ -379,7 +375,11 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("  📈 Memory ", theme.muted()),
             Span::styled(mem_spark_str, theme.sparkline()),
             Span::styled(
-                format!(" avg:{:.0}MB peak:{:.0}MB", history.avg_memory(), history.peak_memory()),
+                format!(
+                    " avg:{:.0}MB peak:{:.0}MB",
+                    history.avg_memory(),
+                    history.peak_memory()
+                ),
                 theme.muted(),
             ),
         ]));
@@ -452,10 +452,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     }
 
     if let Some(ref health) = entry.health_check {
-        extra_lines.push(Line::from(Span::styled(
-            "  🏥 Health Check",
-            theme.title(),
-        )));
+        extra_lines.push(Line::from(Span::styled("  🏥 Health Check", theme.title())));
         extra_lines.push(Line::from(vec![
             Span::styled("    Status:    ", theme.muted()),
             Span::styled(
@@ -546,47 +543,70 @@ fn render_process_tree(f: &mut Frame, area: Rect, app: &App) {
 /// Render Processes tab — sorted by CPU usage.
 fn render_processes_tab(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.theme;
-    
+
     // Sort entries by CPU descending for the processes view
     let mut sorted: Vec<_> = app.entries.iter().collect();
-    sorted.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+    sorted.sort_by(|a, b| {
+        b.cpu_percent
+            .partial_cmp(&a.cpu_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let header = Row::new(["PID", "Process", "CPU %", "Memory MB", "Port", "Uptime"])
         .style(theme.header())
         .height(1);
 
-    let rows: Vec<Row> = sorted.iter().enumerate().map(|(i, entry)| {
-        let cpu_spark = if let Some(history) = app.resource_tracker.get(entry.pid) {
-            if history.samples.len() > 1 {
-                format!(" {:.1}% {}", entry.cpu_percent, sparkline_text(&history.cpu_values(), 8))
+    let rows: Vec<Row> = sorted
+        .iter()
+        .enumerate()
+        .map(|(i, entry)| {
+            let cpu_spark = if let Some(history) = app.resource_tracker.get(entry.pid) {
+                if history.samples.len() > 1 {
+                    format!(
+                        " {:.1}% {}",
+                        entry.cpu_percent,
+                        sparkline_text(&history.cpu_values(), 8)
+                    )
+                } else {
+                    format!(" {:.1}%", entry.cpu_percent)
+                }
             } else {
                 format!(" {:.1}%", entry.cpu_percent)
-            }
-        } else {
-            format!(" {:.1}%", entry.cpu_percent)
-        };
+            };
 
-        let cells = vec![
-            Cell::from(format!("{}", entry.pid)).style(theme.muted()),
-            Cell::from(entry.process_name.clone()).style(theme.process_name()),
-            Cell::from(cpu_spark).style(if entry.cpu_percent > 50.0 { theme.warning() } else { theme.muted() }),
-            Cell::from(format!("{:.0}", entry.memory_mb.max(0.0))).style(theme.muted()),
-            Cell::from(format!("{}", entry.port)).style(theme.port_number()),
-            Cell::from(entry.uptime_display()).style(theme.muted()),
-        ];
+            let cells = vec![
+                Cell::from(format!("{}", entry.pid)).style(theme.muted()),
+                Cell::from(entry.process_name.clone()).style(theme.process_name()),
+                Cell::from(cpu_spark).style(if entry.cpu_percent > 50.0 {
+                    theme.warning()
+                } else {
+                    theme.muted()
+                }),
+                Cell::from(format!("{:.0}", entry.memory_mb.max(0.0))).style(theme.muted()),
+                Cell::from(format!("{}", entry.port)).style(theme.port_number()),
+                Cell::from(entry.uptime_display()).style(theme.muted()),
+            ];
 
-        let style = if i % 2 == 0 { theme.row_normal() } else { theme.row_alt() };
-        Row::new(cells).style(style).height(1)
-    }).collect();
+            let style = if i % 2 == 0 {
+                theme.row_normal()
+            } else {
+                theme.row_alt()
+            };
+            Row::new(cells).style(style).height(1)
+        })
+        .collect();
 
-    let table = Table::new(rows, [
-        Constraint::Length(8),
-        Constraint::Min(16),
-        Constraint::Length(18),
-        Constraint::Length(10),
-        Constraint::Length(7),
-        Constraint::Length(9),
-    ])
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(8),
+            Constraint::Min(16),
+            Constraint::Length(18),
+            Constraint::Length(10),
+            Constraint::Length(7),
+            Constraint::Length(9),
+        ],
+    )
     .header(header)
     .block(
         Block::default()
@@ -605,7 +625,7 @@ fn render_processes_tab(f: &mut Frame, area: Rect, app: &App) {
 /// Render Docker tab — shows only Docker containers.
 fn render_docker_tab(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.theme;
-    
+
     let docker_entries: Vec<_> = app.entries.iter().filter(|e| e.docker.is_some()).collect();
 
     if docker_entries.is_empty() {
@@ -626,26 +646,37 @@ fn render_docker_tab(f: &mut Frame, area: Rect, app: &App) {
         .style(theme.header())
         .height(1);
 
-    let rows: Vec<Row> = docker_entries.iter().enumerate().map(|(i, entry)| {
-        let docker = entry.docker.as_ref().unwrap();
-        let cells = vec![
-            Cell::from(docker.container_name.clone()).style(theme.docker()),
-            Cell::from(docker.image.clone()).style(theme.info()),
-            Cell::from(format!("{}", entry.port)).style(theme.port_number()),
-            Cell::from(entry.status.to_string()).style(theme.status_style(&entry.status)),
-            Cell::from(docker.compose_project.as_deref().unwrap_or("—")).style(theme.muted()),
-        ];
-        let style = if i % 2 == 0 { theme.row_normal() } else { theme.row_alt() };
-        Row::new(cells).style(style).height(1)
-    }).collect();
+    let rows: Vec<Row> = docker_entries
+        .iter()
+        .enumerate()
+        .map(|(i, entry)| {
+            let docker = entry.docker.as_ref().unwrap();
+            let cells = vec![
+                Cell::from(docker.container_name.clone()).style(theme.docker()),
+                Cell::from(docker.image.clone()).style(theme.info()),
+                Cell::from(format!("{}", entry.port)).style(theme.port_number()),
+                Cell::from(entry.status.to_string()).style(theme.status_style(&entry.status)),
+                Cell::from(docker.compose_project.as_deref().unwrap_or("—")).style(theme.muted()),
+            ];
+            let style = if i % 2 == 0 {
+                theme.row_normal()
+            } else {
+                theme.row_alt()
+            };
+            Row::new(cells).style(style).height(1)
+        })
+        .collect();
 
-    let table = Table::new(rows, [
-        Constraint::Min(16),
-        Constraint::Min(16),
-        Constraint::Length(7),
-        Constraint::Length(12),
-        Constraint::Min(10),
-    ])
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Min(16),
+            Constraint::Min(16),
+            Constraint::Length(7),
+            Constraint::Length(12),
+            Constraint::Min(10),
+        ],
+    )
     .header(header)
     .block(
         Block::default()

@@ -1,7 +1,7 @@
 use crate::models::{HealthResult, HealthStatus};
 use std::time::Instant;
 use tokio::net::TcpStream;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tracing::debug;
 
 /// Health check protocol types.
@@ -103,7 +103,10 @@ pub async fn check_grpc_health(port: u16, timeout_ms: u64) -> HealthResult {
         }
         Ok(Err(e)) => {
             let latency = start.elapsed().as_millis() as u64;
-            debug!("gRPC health check port {}: failed {} ({}ms)", port, e, latency);
+            debug!(
+                "gRPC health check port {}: failed {} ({}ms)",
+                port, e, latency
+            );
             HealthResult {
                 status: HealthStatus::Unhealthy,
                 status_code: None,
@@ -136,7 +139,10 @@ pub async fn check_websocket_health(port: u16, timeout_ms: u64) -> HealthResult 
     match timeout(timeout_duration, TcpStream::connect(&addr)).await {
         Ok(Ok(_stream)) => {
             let latency = start.elapsed().as_millis() as u64;
-            debug!("WebSocket health check port {}: healthy ({}ms)", port, latency);
+            debug!(
+                "WebSocket health check port {}: healthy ({}ms)",
+                port, latency
+            );
             HealthResult {
                 status: HealthStatus::Healthy,
                 status_code: None,
@@ -146,7 +152,10 @@ pub async fn check_websocket_health(port: u16, timeout_ms: u64) -> HealthResult 
         }
         Ok(Err(e)) => {
             let latency = start.elapsed().as_millis() as u64;
-            debug!("WebSocket health check port {}: failed {} ({}ms)", port, e, latency);
+            debug!(
+                "WebSocket health check port {}: failed {} ({}ms)",
+                port, e, latency
+            );
             HealthResult {
                 status: HealthStatus::Unhealthy,
                 status_code: None,
@@ -156,7 +165,10 @@ pub async fn check_websocket_health(port: u16, timeout_ms: u64) -> HealthResult 
         }
         Err(_) => {
             let latency = start.elapsed().as_millis() as u64;
-            debug!("WebSocket health check port {}: timeout ({}ms)", port, latency);
+            debug!(
+                "WebSocket health check port {}: timeout ({}ms)",
+                port, latency
+            );
             HealthResult {
                 status: HealthStatus::Unknown,
                 status_code: None,
