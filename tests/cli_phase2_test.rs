@@ -81,5 +81,5 @@ fn test_version_shows_package_version() {
     cmd.arg("--version");
     cmd.assert()
         .success()
-    .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
+        .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
 }
