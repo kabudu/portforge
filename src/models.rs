@@ -8,6 +8,8 @@ pub struct PortEntry {
     pub port: u16,
     pub protocol: Protocol,
     pub pid: u32,
+    #[serde(default)]
+    pub label: Option<String>,
     pub process_name: String,
     pub command: String,
     pub cwd: Option<PathBuf>,
@@ -49,6 +51,11 @@ impl PortEntry {
             }
             None => String::from("—"),
         }
+    }
+
+    /// Returns a display name, using a configured label when present.
+    pub fn display_name(&self) -> &str {
+        self.label.as_deref().unwrap_or(&self.process_name)
     }
 
     /// Returns a display string for the git column.

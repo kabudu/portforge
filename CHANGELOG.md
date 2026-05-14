@@ -11,9 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-### Improved
+- **Custom Detectors** — Configured custom project detectors are now applied during project discovery, including their custom health endpoints.
+- **Port Labels** — Per-port labels now surface in CLI, TUI, web, table, and CSV displays.
+
+### Changed
+
+- **Scanner Performance** — Project and git metadata detection is cached per working directory during scans.
+- **Health Checks** — HTTP health checks now reuse a client per scan and try all configured default endpoints before reporting failure.
+- **Listener Handling** — Scan de-duplication now preserves distinct protocol/PID listeners on the same port.
 
 ### Fixed
+
+- **Config Validation** — Invalid config values now fail loudly instead of silently falling back to defaults, and zero health-check concurrency is rejected.
+- **Port Overrides** — Per-port `hidden` overrides are now honored in default dev-port views.
+- **Web Dashboard Safety** — Mutating web requests now block cross-origin calls and the dashboard no longer installs permissive global CORS.
 
 ## [0.2.1] - 2026-04-08
 
@@ -21,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Configurable Health Check Prefixes** — Per-port and framework health endpoints can now opt into TCP-based checks with `grpc:`, `grpc://`, `ws:`, `ws://`, or `websocket:` prefixes.
 
-### Improved
+### Changed
 
 - **TUI Logs View** — The Logs tab now shows a live in-app activity stream for scans, tab changes, theme changes, and actions instead of a placeholder panel.
 - **TUI Scrolling** — The main Ports table now renders a real viewport from the current scroll offset so large result sets track selection and mouse clicks correctly.
@@ -47,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Custom Color Themes** — 5 built-in themes: dark (default), light, solarized, nord, dracula. Cycle with `T` key.
 - **TUI Mouse Support** — Click to select rows, scroll wheel to navigate. Toggle with `m` key.
 
-### Improved
+### Changed
 
 - **TUI Architecture** — Refactored Theme from static constants to instance-based design for dynamic theme switching.
 - **TUI Layout** — Added tab bar between header and content area.
@@ -63,7 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Marketing website
 
-### Improved
+### Changed
 
 - TUI and web dashboard to match marketing website
 
@@ -78,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TUI Scrolling** — Implemented table auto-scroll and manual navigation (Home/End/g/G) using `table_scroll_offset`.
 - **Tunnel Column** — Added dedicated "Tunnel" column to both the TUI dashboard and tabular exports (CSV/Table).
 
-### Improved
+### Changed
 
 - **TUI Responsiveness** — Refactored event loop to use `async` key handling, enabling immediate UI updates on toggle (e.g., 'a' for all ports), refresh ('r'), and process kill.
 - **Health Checks** — Added concurrency limiting via `tokio::sync::Semaphore` to prevent resource exhaustion during scans.

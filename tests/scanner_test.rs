@@ -67,6 +67,7 @@ fn create_entry(port: u16, name: &str, status: Status) -> PortEntry {
         port,
         protocol: Protocol::Tcp,
         pid: 1000 + port as u32,
+        label: None,
         process_name: name.to_string(),
         command: String::new(),
         cwd: None,

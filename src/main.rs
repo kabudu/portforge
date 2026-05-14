@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
     }
 
     // Load config
-    let config = PortForgeConfig::load().unwrap_or_default();
+    let config = PortForgeConfig::load()?;
 
     let show_all = cli.all || config.general.show_all;
 

@@ -132,10 +132,42 @@ impl PortForgeConfig {
             let config: PortForgeConfig = toml::from_str(&content).map_err(|e| {
                 PortForgeError::ConfigError(format!("Failed to parse config: {}", e))
             })?;
+            config.validate()?;
             Ok(config)
         } else {
             Ok(Self::default())
         }
+    }
+
+    /// Validate configuration values that can otherwise make scans hang or behave surprisingly.
+    pub fn validate(&self) -> Result<()> {
+        if self.general.max_concurrent_health_checks == 0 {
+            return Err(PortForgeError::ConfigError(
+                "general.max_concurrent_health_checks must be at least 1".to_string(),
+            ));
+        }
+
+        if self.health.timeout_ms == 0 {
+            return Err(PortForgeError::ConfigError(
+                "health.timeout_ms must be at least 1".to_string(),
+            ));
+        }
+
+        for detector in &self.detectors {
+            if detector.kind.trim().is_empty() {
+                return Err(PortForgeError::ConfigError(
+                    "custom detector kind must not be empty".to_string(),
+                ));
+            }
+            if detector.detect_files.is_empty() {
+                return Err(PortForgeError::ConfigError(format!(
+                    "custom detector '{}' must include at least one detect file",
+                    detector.kind
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     /// Write default configuration to disk.
@@ -195,5 +227,28 @@ mod tests {
             parsed.general.refresh_interval,
             config.general.refresh_interval
         );
+    }
+
+    #[test]
+    fn test_validate_rejects_zero_health_concurrency() {
+        let mut config = PortForgeConfig::default();
+        config.general.max_concurrent_health_checks = 0;
+
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("max_concurrent_health_checks"));
+    }
+
+    #[test]
+    fn test_validate_rejects_empty_custom_detector_files() {
+        let mut config = PortForgeConfig::default();
+        config.detectors.push(CustomDetector {
+            kind: "Custom".to_string(),
+            framework: "Framework".to_string(),
+            detect_files: Vec::new(),
+            health_endpoint: None,
+        });
+
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("detect file"));
     }
 }

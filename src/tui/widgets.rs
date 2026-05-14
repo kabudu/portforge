@@ -268,7 +268,7 @@ pub fn render_kill_confirm(f: &mut Frame, area: Rect, entry: &PortEntry, theme: 
         ]),
         Line::from(vec![
             Span::styled("    Process: ", theme.muted()),
-            Span::styled(&entry.process_name, theme.process_name()),
+            Span::styled(entry.display_name(), theme.process_name()),
         ]),
         Line::from(""),
         Line::from(vec![

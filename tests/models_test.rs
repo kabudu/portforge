@@ -38,6 +38,15 @@ fn test_port_entry_project_display() {
 }
 
 #[test]
+fn test_port_entry_display_name_prefers_label() {
+    let mut entry = create_test_entry(3000, "node", 100);
+    assert_eq!(entry.display_name(), "node");
+
+    entry.label = Some("Frontend".to_string());
+    assert_eq!(entry.display_name(), "Frontend");
+}
+
+#[test]
 fn test_port_entry_git_display() {
     let mut entry = create_test_entry(3000, "node", 100);
     assert_eq!(entry.git_display(), "—");
@@ -133,6 +142,7 @@ fn create_test_entry(port: u16, name: &str, uptime: u64) -> PortEntry {
         port,
         protocol: Protocol::Tcp,
         pid: 1234,
+        label: None,
         process_name: name.to_string(),
         command: format!("/usr/bin/{}", name),
         cwd: Some(std::path::PathBuf::from("/tmp")),

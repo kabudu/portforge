@@ -5,7 +5,7 @@ use crate::web::assets::StaticAssets;
 use crate::web::server::SharedState;
 use axum::{
     extract::{Path, State},
-    http::{StatusCode, header},
+    http::{HeaderMap, StatusCode, header},
     response::{Html, IntoResponse, Json},
 };
 use serde::Serialize;
@@ -147,15 +147,63 @@ pub async fn api_port_detail(
 pub async fn api_kill_port(
     State(state): State<SharedState>,
     Path(port): Path<u16>,
+    headers: HeaderMap,
 ) -> impl IntoResponse {
-    let state = state.lock().await;
-    match state.entries.iter().find(|e| e.port == port) {
-        Some(entry) => match process::kill_process(entry, false) {
+    if !is_same_origin_request(&headers) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"status": "error", "message": "Cross-origin request blocked"})),
+        )
+            .into_response();
+    }
+
+    let entry = {
+        let state = state.lock().await;
+        state.entries.iter().find(|e| e.port == port).cloned()
+    };
+
+    match entry {
+        Some(entry) => match process::kill_process(&entry, false) {
             Ok(()) => Json(serde_json::json!({"status": "ok", "message": format!("Killed PID {} on port {}", entry.pid, port)})).into_response(),
             Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"status": "error", "message": e.to_string()}))).into_response(),
         },
         None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"status": "error", "message": "Port not found"}))).into_response(),
     }
+}
+
+fn is_same_origin_request(headers: &HeaderMap) -> bool {
+    let host = match headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+    {
+        Some(host) => host,
+        None => return false,
+    };
+
+    if let Some(origin) = headers
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+    {
+        return origin_matches_host(origin, host);
+    }
+
+    if let Some(referer) = headers
+        .get(header::REFERER)
+        .and_then(|value| value.to_str().ok())
+    {
+        return origin_matches_host(referer, host);
+    }
+
+    true
+}
+
+fn origin_matches_host(value: &str, host: &str) -> bool {
+    value
+        .strip_prefix("http://")
+        .or_else(|| value.strip_prefix("https://"))
+        .and_then(|rest| rest.split('/').next())
+        .map(|origin_host| origin_host.eq_ignore_ascii_case(host))
+        .unwrap_or(false)
 }
 
 #[derive(Serialize)]
@@ -295,7 +343,7 @@ fn render_port_table(entries: &[crate::models::PortEntry]) -> String {
             port = entry.port,
             protocol = entry.protocol,
             pid = entry.pid,
-            process = html_escape(&entry.process_name),
+            process = html_escape(entry.display_name()),
             project = html_escape(&entry.project_display()),
             git = html_escape(&entry.git_display()),
             git_class = git_class,
@@ -333,4 +381,34 @@ fn html_escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    #[test]
+    fn test_same_origin_request_allows_matching_origin() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_static("127.0.0.1:9090"));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("http://127.0.0.1:9090"),
+        );
+
+        assert!(is_same_origin_request(&headers));
+    }
+
+    #[test]
+    fn test_same_origin_request_blocks_cross_origin() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_static("127.0.0.1:9090"));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://example.com"),
+        );
+
+        assert!(!is_same_origin_request(&headers));
+    }
 }

@@ -5,7 +5,7 @@ use tokio::time::{Duration, timeout};
 use tracing::debug;
 
 /// Health check protocol types.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HealthCheckType {
     /// Standard HTTP health check.
     Http,
@@ -17,26 +17,35 @@ pub enum HealthCheckType {
 
 /// Perform an HTTP health check on a given port and endpoint.
 pub async fn check_health(port: u16, endpoint: &str, timeout_ms: u64) -> HealthResult {
-    let url = format!("http://127.0.0.1:{}{}", port, endpoint);
-    debug!("Health check: {}", url);
+    let client = build_client(timeout_ms);
+    match client {
+        Ok(client) => check_health_with_client(&client, port, endpoint).await,
+        Err(_) => HealthResult {
+            status: HealthStatus::Unknown,
+            status_code: None,
+            latency_ms: 0,
+            endpoint: endpoint.to_string(),
+        },
+    }
+}
 
-    let client = reqwest::Client::builder()
+/// Build a reusable HTTP client for health checks.
+pub fn build_client(timeout_ms: u64) -> Result<reqwest::Client, reqwest::Error> {
+    reqwest::Client::builder()
         .timeout(std::time::Duration::from_millis(timeout_ms))
         .danger_accept_invalid_certs(true)
         .no_proxy()
-        .build();
+        .build()
+}
 
-    let client = match client {
-        Ok(c) => c,
-        Err(_e) => {
-            return HealthResult {
-                status: HealthStatus::Unknown,
-                status_code: None,
-                latency_ms: 0,
-                endpoint: endpoint.to_string(),
-            };
-        }
-    };
+/// Perform an HTTP health check using a caller-provided client.
+pub async fn check_health_with_client(
+    client: &reqwest::Client,
+    port: u16,
+    endpoint: &str,
+) -> HealthResult {
+    let url = format!("http://127.0.0.1:{}{}", port, endpoint);
+    debug!("Health check: {}", url);
 
     let start = Instant::now();
 

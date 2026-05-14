@@ -191,7 +191,7 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
             let cells = vec![
                 Cell::from(format!("{}", entry.port)).style(theme.port_number()),
                 Cell::from(format!("{}", entry.pid)).style(theme.muted()),
-                Cell::from(entry.process_name.clone()).style(theme.process_name()),
+                Cell::from(entry.display_name().to_string()).style(theme.process_name()),
                 Cell::from(entry.project_display()).style(theme.info()),
                 Cell::from(entry.git_display()).style(
                     if entry.git.as_ref().is_some_and(|g| g.dirty) {
@@ -320,7 +320,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(vec![
             Span::styled("  Process:   ", theme.muted()),
-            Span::styled(&entry.process_name, theme.process_name()),
+            Span::styled(entry.display_name(), theme.process_name()),
         ]),
         Line::from(vec![
             Span::styled("  Command:   ", theme.muted()),
@@ -576,7 +576,7 @@ fn render_processes_tab(f: &mut Frame, area: Rect, app: &App) {
 
             let cells = vec![
                 Cell::from(format!("{}", entry.pid)).style(theme.muted()),
-                Cell::from(entry.process_name.clone()).style(theme.process_name()),
+                Cell::from(entry.display_name().to_string()).style(theme.process_name()),
                 Cell::from(cpu_spark).style(if entry.cpu_percent > 50.0 {
                     theme.warning()
                 } else {

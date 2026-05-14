@@ -8,7 +8,8 @@ use crate::health::HealthCheckType;
 use crate::models::*;
 use crate::project;
 use crate::tunnel;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use tokio::sync::Semaphore;
@@ -61,6 +62,8 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
     let docker_map: HashMap<u16, crate::models::DockerInfo> = HashMap::new();
 
     let mut entries: Vec<PortEntry> = Vec::new();
+    let mut project_cache: HashMap<PathBuf, Option<ProjectInfo>> = HashMap::new();
+    let mut git_cache: HashMap<PathBuf, Option<GitInfo>> = HashMap::new();
 
     // Scope the !Send MutexGuard so it drops before we await health checks
     {
@@ -132,8 +135,10 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 
             let uptime_secs = proc_info.map(|p| p.run_time()).unwrap_or(0);
 
-            let project_info = cwd.as_ref().and_then(|cwd| project::detect_project(cwd));
-            let git_info = cwd.as_ref().and_then(|cwd| git::get_git_info(cwd));
+            let project_info = cwd
+                .as_ref()
+                .and_then(|cwd| cached_project(cwd, config, &mut project_cache));
+            let git_info = cwd.as_ref().and_then(|cwd| cached_git(cwd, &mut git_cache));
             let docker_info = docker_map.get(&port).cloned();
             let tunnel_info = tunnel::detect_tunnel(&process_name, &command);
 
@@ -143,11 +148,16 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
             };
 
             let status = determine_status(proc_info.is_some(), &project_info, &docker_info);
+            let label = config
+                .ports
+                .get(&port)
+                .and_then(|port_override| port_override.label.clone());
 
             entries.push(PortEntry {
                 port,
                 protocol,
                 pid,
+                label,
                 process_name,
                 command,
                 cwd,
@@ -164,14 +174,10 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
         }
     }
 
-    // Remove duplicates by port (keep the first occurrence)
-    let mut seen_ports = std::collections::HashSet::new();
-    entries.retain(|e| seen_ports.insert(e.port));
+    dedupe_listener_entries(&mut entries);
 
     // Filter to dev-only unless --all
-    if !show_all {
-        entries.retain(|e| e.project.is_some() || e.docker.is_some());
-    }
+    apply_view_filter(&mut entries, config, show_all);
 
     // Run health checks if enabled
     if config.general.health_checks_enabled {
@@ -183,6 +189,46 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 
     debug!("Scan complete: {} entries", entries.len());
     Ok(entries)
+}
+
+fn dedupe_listener_entries(entries: &mut Vec<PortEntry>) {
+    let mut seen_listeners = HashSet::new();
+    entries.retain(|e| seen_listeners.insert((e.port, e.protocol, e.pid)));
+}
+
+fn apply_view_filter(entries: &mut Vec<PortEntry>, config: &PortForgeConfig, show_all: bool) {
+    if show_all {
+        return;
+    }
+
+    entries.retain(|e| {
+        !config
+            .ports
+            .get(&e.port)
+            .map(|port_override| port_override.hidden)
+            .unwrap_or(false)
+            && (e.project.is_some() || e.docker.is_some() || e.label.is_some())
+    });
+}
+
+fn cached_project(
+    cwd: &Path,
+    config: &PortForgeConfig,
+    cache: &mut HashMap<PathBuf, Option<ProjectInfo>>,
+) -> Option<ProjectInfo> {
+    let key = cwd.to_path_buf();
+    cache
+        .entry(key)
+        .or_insert_with(|| project::detect_project_with_custom(cwd, &config.detectors))
+        .clone()
+}
+
+fn cached_git(cwd: &Path, cache: &mut HashMap<PathBuf, Option<GitInfo>>) -> Option<GitInfo> {
+    let key = cwd.to_path_buf();
+    cache
+        .entry(key)
+        .or_insert_with(|| git::get_git_info(cwd))
+        .clone()
 }
 
 fn should_skip_listener_pid(pid: u32) -> bool {
@@ -210,7 +256,14 @@ fn determine_status(
 /// Run health checks on all entries concurrently with limited concurrency.
 async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) {
     let timeout_ms = config.health.timeout_ms;
-    let max_concurrent = config.general.max_concurrent_health_checks;
+    let max_concurrent = config.general.max_concurrent_health_checks.max(1);
+    let http_client = match health::build_client(timeout_ms) {
+        Ok(client) => Some(Arc::new(client)),
+        Err(e) => {
+            warn!("Failed to build HTTP health client: {}", e);
+            None
+        }
+    };
 
     // Create a semaphore to limit concurrent health checks
     let semaphore = Arc::new(Semaphore::new(max_concurrent));
@@ -218,13 +271,14 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
 
     for entry in entries.iter() {
         let port = entry.port;
-        let (check_type, endpoint) = resolve_health_strategy(entry, config);
+        let strategies = resolve_health_strategies(entry, config);
 
         let timeout = timeout_ms;
+        let client = http_client.clone();
         let sem_permit = semaphore.clone().acquire_owned().await.unwrap();
 
         handles.push(tokio::spawn(async move {
-            let result = health::check_health_typed(port, check_type, &endpoint, timeout).await;
+            let result = run_health_strategies(port, strategies, timeout, client).await;
             drop(sem_permit); // Release permit when done
             (port, result)
         }));
@@ -250,10 +304,21 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
     }
 }
 
+#[cfg(test)]
 fn resolve_health_strategy(
     entry: &PortEntry,
     config: &PortForgeConfig,
 ) -> (HealthCheckType, String) {
+    resolve_health_strategies(entry, config)
+        .into_iter()
+        .next()
+        .unwrap_or((HealthCheckType::Http, "/health".to_string()))
+}
+
+fn resolve_health_strategies(
+    entry: &PortEntry,
+    config: &PortForgeConfig,
+) -> Vec<(HealthCheckType, String)> {
     let framework = entry
         .project
         .as_ref()
@@ -264,16 +329,27 @@ fn resolve_health_strategy(
 
     if let Some(port_override) = config.ports.get(&entry.port) {
         if let Some(endpoint) = &port_override.health_endpoint {
-            return parse_health_endpoint(endpoint);
+            return vec![parse_health_endpoint(endpoint)];
+        }
+    }
+
+    if let Some(project) = &entry.project {
+        if let Some(detector) = config.detectors.iter().find(|detector| {
+            detector.kind.eq_ignore_ascii_case(&project.kind)
+                && detector.framework.eq_ignore_ascii_case(&project.framework)
+        }) {
+            if let Some(endpoint) = &detector.health_endpoint {
+                return vec![parse_health_endpoint(endpoint)];
+            }
         }
     }
 
     if let Some(endpoint) = config.health.framework_endpoints.get(&framework) {
-        return parse_health_endpoint(endpoint);
+        return vec![parse_health_endpoint(endpoint)];
     }
 
     if command.contains("grpc") || process_name.contains("grpc") || framework.contains("grpc") {
-        return (HealthCheckType::Grpc, "gRPC".to_string());
+        return vec![(HealthCheckType::Grpc, "gRPC".to_string())];
     }
 
     if command.contains("websocket")
@@ -282,17 +358,49 @@ fn resolve_health_strategy(
         || process_name.contains("websocket")
         || framework.contains("socket")
     {
-        return (HealthCheckType::WebSocket, "WebSocket".to_string());
+        return vec![(HealthCheckType::WebSocket, "WebSocket".to_string())];
     }
 
-    let endpoint = config
-        .health
-        .default_endpoints
-        .first()
-        .cloned()
-        .unwrap_or_else(|| "/health".to_string());
+    let endpoints = if config.health.default_endpoints.is_empty() {
+        vec!["/health".to_string()]
+    } else {
+        config.health.default_endpoints.clone()
+    };
 
-    (HealthCheckType::Http, endpoint)
+    endpoints
+        .into_iter()
+        .map(|endpoint| (HealthCheckType::Http, endpoint))
+        .collect()
+}
+
+async fn run_health_strategies(
+    port: u16,
+    strategies: Vec<(HealthCheckType, String)>,
+    timeout_ms: u64,
+    http_client: Option<Arc<reqwest::Client>>,
+) -> HealthResult {
+    let mut last_result = None;
+
+    for (check_type, endpoint) in strategies {
+        let result = match (check_type, http_client.as_ref()) {
+            (HealthCheckType::Http, Some(client)) => {
+                health::check_health_with_client(client, port, &endpoint).await
+            }
+            _ => health::check_health_typed(port, check_type, &endpoint, timeout_ms).await,
+        };
+
+        if result.status == HealthStatus::Healthy {
+            return result;
+        }
+        last_result = Some(result);
+    }
+
+    last_result.unwrap_or(HealthResult {
+        status: HealthStatus::Unknown,
+        status_code: None,
+        latency_ms: 0,
+        endpoint: "/health".to_string(),
+    })
 }
 
 fn parse_health_endpoint(endpoint: &str) -> (HealthCheckType, String) {
@@ -395,6 +503,7 @@ mod tests {
             port,
             protocol: Protocol::Tcp,
             pid: port as u32,
+            label: None,
             process_name: process_name.to_string(),
             command: command.to_string(),
             cwd: None,
@@ -408,6 +517,87 @@ mod tests {
             status: Status::Unknown,
             health_check: None,
         }
+    }
+
+    #[test]
+    fn test_resolve_health_strategies_uses_all_default_endpoints() {
+        let mut config = PortForgeConfig::default();
+        config.health.default_endpoints = vec!["/ready".to_string(), "/".to_string()];
+
+        let entry = entry_with_command(3000, "server", "server --port 3000");
+        let strategies = resolve_health_strategies(&entry, &config);
+
+        assert_eq!(
+            strategies,
+            vec![
+                (HealthCheckType::Http, "/ready".to_string()),
+                (HealthCheckType::Http, "/".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn test_dedupe_keeps_distinct_protocols_and_pids() {
+        let mut entries = vec![
+            entry_with_command(3000, "tcp-one", ""),
+            entry_with_command(3000, "tcp-one-duplicate", ""),
+            entry_with_command(3000, "tcp-two", ""),
+            entry_with_command(3000, "udp-one", ""),
+        ];
+        entries[2].pid = 4242;
+        entries[3].protocol = Protocol::Udp;
+
+        dedupe_listener_entries(&mut entries);
+
+        assert_eq!(entries.len(), 3);
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.protocol == Protocol::Tcp && e.pid == 3000)
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.protocol == Protocol::Tcp && e.pid == 4242)
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.protocol == Protocol::Udp && e.pid == 3000)
+        );
+    }
+
+    #[test]
+    fn test_view_filter_keeps_labeled_ports_and_hides_hidden_ports() {
+        let mut config = PortForgeConfig::default();
+        config.ports.insert(
+            3000,
+            crate::config::PortOverride {
+                label: Some("Frontend".to_string()),
+                health_endpoint: None,
+                hidden: false,
+            },
+        );
+        config.ports.insert(
+            4000,
+            crate::config::PortOverride {
+                label: Some("Hidden".to_string()),
+                health_endpoint: None,
+                hidden: true,
+            },
+        );
+
+        let mut labeled = entry_with_command(3000, "node", "");
+        labeled.label = Some("Frontend".to_string());
+        let mut hidden = entry_with_command(4000, "node", "");
+        hidden.label = Some("Hidden".to_string());
+        let unknown = entry_with_command(5000, "system", "");
+        let mut entries = vec![labeled, hidden, unknown];
+
+        apply_view_filter(&mut entries, &config, false);
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].port, 3000);
     }
 
     #[test]

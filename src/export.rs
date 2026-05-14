@@ -34,7 +34,7 @@ impl From<&PortEntry> for PortRow {
         Self {
             port: format!("{}/{}", e.port, e.protocol),
             pid: e.pid,
-            process: e.process_name.clone(),
+            process: e.display_name().to_string(),
             project: e.project_display(),
             git: e.git_display(),
             tunnel: e.tunnel_display(),
@@ -101,7 +101,7 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
             e.port,
             e.protocol,
             e.pid,
-            escape_csv(&e.process_name),
+            escape_csv(e.display_name()),
             escape_csv(project),
             escape_csv(framework),
             escape_csv(git_branch),
@@ -136,6 +136,9 @@ pub fn print_inspection(entry: &PortEntry) {
     println!("  Port:        {}/{}", entry.port, entry.protocol);
     println!("  PID:         {}", entry.pid);
     println!("  Process:     {}", entry.process_name);
+    if let Some(label) = &entry.label {
+        println!("  Label:       {}", label);
+    }
     println!("  Command:     {}", entry.command);
     println!(
         "  CWD:         {}",

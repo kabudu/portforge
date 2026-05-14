@@ -7,7 +7,6 @@ use axum::{
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tower_http::cors::{Any, CorsLayer};
 
 /// Shared application state for the web server.
 pub struct AppState {
@@ -49,11 +48,6 @@ pub async fn start_server(bind: &str, port: u16, config: PortForgeConfig) -> Res
         }
     });
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
-
     let app = Router::new()
         // Pages
         .route("/", get(handlers::dashboard_page))
@@ -67,7 +61,6 @@ pub async fn start_server(bind: &str, port: u16, config: PortForgeConfig) -> Res
         .route("/partials/stats", get(handlers::partial_stats))
         // Static assets
         .route("/static/{*path}", get(handlers::static_asset))
-        .layer(cors)
         .with_state(state);
 
     let addr = format!("{}:{}", bind, port);

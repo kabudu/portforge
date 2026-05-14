@@ -6,6 +6,7 @@ fn create_test_entry(port: u16, pid: u32) -> PortEntry {
         port,
         protocol: Protocol::Tcp,
         pid,
+        label: None,
         process_name: "test_process".to_string(),
         command: "test --args".to_string(),
         cwd: None,

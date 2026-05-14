@@ -1,3 +1,4 @@
+use crate::config::CustomDetector;
 use crate::models::ProjectInfo;
 use std::path::Path;
 use tracing::debug;
@@ -5,15 +6,49 @@ use tracing::debug;
 /// Detect project kind and framework from the given directory.
 /// Walks up the directory tree to find project manifest files.
 pub fn detect_project(dir: &Path) -> Option<ProjectInfo> {
+    detect_project_with_custom(dir, &[])
+}
+
+/// Detect project kind/framework using built-in and configured custom detectors.
+pub fn detect_project_with_custom(
+    dir: &Path,
+    custom_detectors: &[CustomDetector],
+) -> Option<ProjectInfo> {
     let mut current = dir.to_path_buf();
 
     for _ in 0..10 {
         // Limit traversal depth
+        if let Some(info) = detect_custom_in_dir(&current, custom_detectors) {
+            return Some(info);
+        }
         if let Some(info) = detect_in_dir(&current) {
             return Some(info);
         }
         if !current.pop() {
             break;
+        }
+    }
+    None
+}
+
+fn detect_custom_in_dir(dir: &Path, detectors: &[CustomDetector]) -> Option<ProjectInfo> {
+    for detector in detectors {
+        for detect_file in &detector.detect_files {
+            let path = dir.join(detect_file);
+            if path.exists() {
+                debug!(
+                    "Detected custom {} project ({}) at {}",
+                    detector.kind,
+                    detector.framework,
+                    dir.display()
+                );
+                return Some(ProjectInfo {
+                    kind: detector.kind.clone(),
+                    framework: detector.framework.clone(),
+                    version: None,
+                    detected_file: path,
+                });
+            }
         }
     }
     None
@@ -298,5 +333,26 @@ mod tests {
         assert!(project.is_some());
         let info = project.unwrap();
         assert_eq!(info.kind, "Rust");
+    }
+
+    #[test]
+    fn test_detect_custom_project_before_builtin_parent() {
+        let temp = tempfile::tempdir().unwrap();
+        let child = temp.path().join("service");
+        std::fs::create_dir(&child).unwrap();
+        std::fs::write(temp.path().join("package.json"), "{}").unwrap();
+        std::fs::write(child.join("forge.service"), "").unwrap();
+
+        let detectors = vec![CustomDetector {
+            kind: "Forge".to_string(),
+            framework: "Custom".to_string(),
+            detect_files: vec!["forge.service".to_string()],
+            health_endpoint: Some("/ready".to_string()),
+        }];
+
+        let project = detect_project_with_custom(&child, &detectors).unwrap();
+        assert_eq!(project.kind, "Forge");
+        assert_eq!(project.framework, "Custom");
+        assert_eq!(project.detected_file, child.join("forge.service"));
     }
 }

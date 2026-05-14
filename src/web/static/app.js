@@ -40,6 +40,7 @@ function renderDetail(entry) {
         <div class="detail-section">
             <h3>🔌 Process</h3>
             <div class="detail-row"><span class="detail-label">PID</span><span class="detail-value">${entry.pid}</span></div>
+            ${entry.label ? `<div class="detail-row"><span class="detail-label">Label</span><span class="detail-value">${escapeHtml(entry.label)}</span></div>` : ""}
             <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${escapeHtml(entry.process_name)}</span></div>
             <div class="detail-row"><span class="detail-label">Command</span><span class="detail-value" style="word-break: break-all;">${escapeHtml(entry.command)}</span></div>
             <div class="detail-row"><span class="detail-label">Memory</span><span class="detail-value">${Math.max(0, entry.memory_mb).toFixed(1)} MB</span></div>

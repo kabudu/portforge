@@ -231,6 +231,7 @@ mod tests {
             port: 3000,
             protocol: Protocol::Tcp,
             pid: 1,
+            label: None,
             process_name: "node".to_string(),
             command: "node server.js".to_string(),
             cwd: Some(PathBuf::from("/app")),
