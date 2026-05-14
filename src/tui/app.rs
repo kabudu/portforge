@@ -487,10 +487,8 @@ impl App {
             KeyCode::PageUp => self.move_selection(-20),
 
             // Actions
-            KeyCode::Enter | KeyCode::Char('d') => {
-                if self.selected_entry().is_some() {
-                    self.view_mode = ViewMode::Detail;
-                }
+            KeyCode::Enter | KeyCode::Char('d') if self.selected_entry().is_some() => {
+                self.view_mode = ViewMode::Detail;
             }
             KeyCode::Char('t') => {
                 if let Some(entry) = self.selected_entry() {
@@ -498,11 +496,9 @@ impl App {
                     self.view_mode = ViewMode::ProcessTree;
                 }
             }
-            KeyCode::Char('K') => {
-                if self.selected_entry().is_some() {
-                    self.modal_return_view = ViewMode::Table;
-                    self.view_mode = ViewMode::KillConfirm;
-                }
+            KeyCode::Char('K') if self.selected_entry().is_some() => {
+                self.modal_return_view = ViewMode::Table;
+                self.view_mode = ViewMode::KillConfirm;
             }
             KeyCode::Char('/') => {
                 self.view_mode = ViewMode::Search;
