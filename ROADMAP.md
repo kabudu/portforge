@@ -64,7 +64,7 @@ This document outlines the planned development phases for PortForge.
   - [ ] macOS native notifications
   - [ ] Linux D-Bus notifications
   - [ ] Windows toast notifications
-- [ ] Kubernetes pod port-forwarding awareness
+- [x] Kubernetes pod port-forwarding awareness
 - [ ] SSH tunnel detection and management
 
 ---

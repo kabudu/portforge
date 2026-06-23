@@ -26,6 +26,7 @@ _Know what's running on your ports — instantly, with rich developer context._
 - 🔍 **Project Detection** — Auto-detects 20+ languages & 40+ frameworks
 - 🔀 **Git Integration** — Shows branch name and dirty status
 - 🐳 **Docker/Podman** — Native container port mapping via Bollard API
+- ☸️ **Kubernetes Awareness** — Detects local `kubectl port-forward` sessions
 - 🏥 **Health Checks** — HTTP probes with framework-aware endpoints
 - 🌲 **Process Trees** — Drill down into parent/child process hierarchies
 - 📊 **Resource Monitoring** — CPU%, memory, uptime per process
@@ -92,6 +93,12 @@ portforge watch
 
 # Export as JSON
 portforge ps --json
+
+# Terminal 1: start a Kubernetes port-forward
+kubectl port-forward svc/api 18080:80 -n dev --context staging
+
+# Terminal 2: inspect the forwarded local port
+portforge inspect 18080
 
 # Launch web dashboard (requires --features web)
 portforge serve --port 9090
@@ -190,6 +197,24 @@ Health endpoint prefixes:
 - `ws:`, `ws://`, or `websocket:` uses a TCP connection check instead of HTTP for WebSocket-style services.
 - Plain values like `/health` continue to use normal HTTP probing.
 
+## ☸️ Kubernetes Port-Forward Awareness
+
+PortForge detects local listeners created by `kubectl port-forward` and shows the
+forwarded Kubernetes resource, namespace, context, bind address, and port
+mapping across CLI, TUI detail, web dashboard, JSON, and CSV output.
+
+Supported target forms include:
+
+```bash
+kubectl port-forward pod/api-123 8080:80
+kubectl port-forward svc/api 3000:3000 -n dev
+kubectl --context staging port-forward deployment/web :8080
+```
+
+Detection is local and best-effort. PortForge parses the existing process
+command line only; it does not call the Kubernetes API, read kubeconfig, or run
+`kubectl`.
+
 ## 🏗️ Architecture
 
 ```text
@@ -204,6 +229,7 @@ portforge/
 │   ├── project.rs       # Framework detection (20+ languages)
 │   ├── docker.rs        # Bollard Docker/Podman integration
 │   ├── git.rs           # git2 branch/dirty detection
+│   ├── kubernetes.rs    # kubectl port-forward detection
 │   ├── health.rs        # HTTP health probes
 │   ├── config.rs        # TOML configuration
 │   ├── export.rs        # JSON/CSV/table output

@@ -435,6 +435,13 @@ body::before {
   color: var(--accent-cyan);
 }
 
+.kubernetes-cell {
+  color: var(--accent-blue);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .uptime-cell,
 .mem-cell {
   color: var(--text-secondary);

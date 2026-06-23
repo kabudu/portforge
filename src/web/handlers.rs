@@ -331,6 +331,7 @@ fn render_port_table(entries: &[crate::models::PortEntry]) -> String {
                 <td class="process-cell">{process}</td>
                 <td class="project-cell">{project}</td>
                 <td class="git-cell {git_class}">{git}</td>
+                <td class="kubernetes-cell">{kubernetes}</td>
                 <td class="docker-cell">{docker}</td>
                 <td class="uptime-cell">{uptime}</td>
                 <td class="mem-cell">{mem:.0} MB</td>
@@ -347,6 +348,7 @@ fn render_port_table(entries: &[crate::models::PortEntry]) -> String {
             project = html_escape(&entry.project_display()),
             git = html_escape(&entry.git_display()),
             git_class = git_class,
+            kubernetes = html_escape(&entry.kubernetes_display()),
             docker = html_escape(&entry.docker_display()),
             uptime = entry.uptime_display(),
             mem = entry.memory_mb,
@@ -364,6 +366,7 @@ fn render_port_table(entries: &[crate::models::PortEntry]) -> String {
                     <th>Process</th>
                     <th>Project</th>
                     <th>Git</th>
+                    <th>Kubernetes</th>
                     <th>Docker</th>
                     <th>Uptime</th>
                     <th>Memory</th>
@@ -386,6 +389,7 @@ fn html_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{KubernetesInfo, PortEntry, Protocol, Status};
     use axum::http::HeaderValue;
 
     #[test]
@@ -410,5 +414,47 @@ mod tests {
         );
 
         assert!(!is_same_origin_request(&headers));
+    }
+
+    #[test]
+    fn test_port_table_escapes_kubernetes_display() {
+        let mut entry = test_entry();
+        entry.kubernetes = Some(KubernetesInfo {
+            tool: "kubectl".to_string(),
+            resource_kind: "service".to_string(),
+            resource_name: "<api>".to_string(),
+            namespace: Some("dev".to_string()),
+            context: None,
+            local_port: 18080,
+            remote_port: Some(80),
+            bind_address: None,
+        });
+
+        let html = render_port_table(&[entry]);
+
+        assert!(html.contains("service/&lt;api&gt;"));
+        assert!(!html.contains("service/<api>"));
+    }
+
+    fn test_entry() -> PortEntry {
+        PortEntry {
+            port: 18080,
+            protocol: Protocol::Tcp,
+            pid: 1234,
+            label: None,
+            process_name: "kubectl".to_string(),
+            command: "kubectl port-forward svc/api 18080:80".to_string(),
+            cwd: None,
+            memory_mb: 25.0,
+            cpu_percent: 1.0,
+            uptime_secs: 60,
+            project: None,
+            docker: None,
+            git: None,
+            tunnel: None,
+            kubernetes: None,
+            status: Status::Healthy,
+            health_check: None,
+        }
     }
 }

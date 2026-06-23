@@ -17,6 +17,8 @@ struct PortRow {
     git: String,
     #[tabled(rename = "TUNNEL")]
     tunnel: String,
+    #[tabled(rename = "KUBERNETES")]
+    kubernetes: String,
     #[tabled(rename = "DOCKER")]
     docker: String,
     #[tabled(rename = "UPTIME")]
@@ -38,6 +40,7 @@ impl From<&PortEntry> for PortRow {
             project: e.project_display(),
             git: e.git_display(),
             tunnel: e.tunnel_display(),
+            kubernetes: e.kubernetes_display(),
             docker: e.docker_display(),
             uptime: e.uptime_display(),
             memory: format!("{:.1}MB", e.memory_mb),
@@ -70,7 +73,7 @@ pub fn to_json(entries: &[PortEntry], pretty: bool) -> Result<String> {
 /// Export entries as CSV string.
 pub fn to_csv(entries: &[PortEntry]) -> String {
     let mut output = String::new();
-    output.push_str("port,protocol,pid,process,project,framework,git_branch,git_dirty,tunnel,docker,uptime_secs,memory_mb,cpu_percent,status\n");
+    output.push_str("port,protocol,pid,process,project,framework,git_branch,git_dirty,tunnel,kubernetes_resource,kubernetes_namespace,kubernetes_context,kubernetes_local_port,kubernetes_remote_port,kubernetes_bind_address,docker,uptime_secs,memory_mb,cpu_percent,status\n");
 
     for e in entries {
         let project = e.project.as_ref().map(|p| p.kind.as_str()).unwrap_or("");
@@ -82,6 +85,37 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
         let git_branch = e.git.as_ref().map(|g| g.branch.as_str()).unwrap_or("");
         let git_dirty = e.git.as_ref().map(|g| g.dirty).unwrap_or(false);
         let tunnel = e.tunnel.as_ref().map(|t| t.kind.as_str()).unwrap_or("");
+        let kubernetes_resource = e
+            .kubernetes
+            .as_ref()
+            .map(|k| k.resource_display())
+            .unwrap_or_default();
+        let kubernetes_namespace = e
+            .kubernetes
+            .as_ref()
+            .and_then(|k| k.namespace.as_deref())
+            .unwrap_or("");
+        let kubernetes_context = e
+            .kubernetes
+            .as_ref()
+            .and_then(|k| k.context.as_deref())
+            .unwrap_or("");
+        let kubernetes_local_port = e
+            .kubernetes
+            .as_ref()
+            .map(|k| k.local_port.to_string())
+            .unwrap_or_default();
+        let kubernetes_remote_port = e
+            .kubernetes
+            .as_ref()
+            .and_then(|k| k.remote_port)
+            .map(|port| port.to_string())
+            .unwrap_or_default();
+        let kubernetes_bind_address = e
+            .kubernetes
+            .as_ref()
+            .and_then(|k| k.bind_address.as_deref())
+            .unwrap_or("");
         let docker = e
             .docker
             .as_ref()
@@ -97,7 +131,7 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
         };
 
         output.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{:.1},{:.1},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:.1},{:.1},{}\n",
             e.port,
             e.protocol,
             e.pid,
@@ -107,6 +141,12 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
             escape_csv(git_branch),
             git_dirty,
             escape_csv(tunnel),
+            escape_csv(&kubernetes_resource),
+            escape_csv(kubernetes_namespace),
+            escape_csv(kubernetes_context),
+            kubernetes_local_port,
+            kubernetes_remote_port,
+            escape_csv(kubernetes_bind_address),
             escape_csv(docker),
             e.uptime_secs,
             e.memory_mb,
@@ -183,6 +223,26 @@ pub fn print_inspection(entry: &PortEntry) {
         println!("    Image:     {}", docker.image);
         if let Some(ref compose) = docker.compose_project {
             println!("    Compose:   {}", compose);
+        }
+        println!();
+    }
+
+    if let Some(ref kubernetes) = entry.kubernetes {
+        println!("  ☸ Kubernetes");
+        println!("    Tool:      {}", kubernetes.tool);
+        println!("    Resource:  {}", kubernetes.resource_display());
+        if let Some(ref namespace) = kubernetes.namespace {
+            println!("    Namespace: {}", namespace);
+        }
+        if let Some(ref context) = kubernetes.context {
+            println!("    Context:   {}", context);
+        }
+        println!("    Local:     {}", kubernetes.local_port);
+        if let Some(remote_port) = kubernetes.remote_port {
+            println!("    Remote:    {}", remote_port);
+        }
+        if let Some(ref bind_address) = kubernetes.bind_address {
+            println!("    Address:   {}", bind_address);
         }
         println!();
     }

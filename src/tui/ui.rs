@@ -399,7 +399,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     );
     f.render_widget(sparklines, chunks[1]);
 
-    // Extra sections (project, git, docker, health)
+    // Extra sections (project, git, docker, Kubernetes, health)
     let mut extra_lines = Vec::new();
 
     if let Some(ref project) = entry.project {
@@ -448,6 +448,40 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("    Image:     ", theme.muted()),
             Span::raw(&docker.image),
         ]));
+        extra_lines.push(Line::from(""));
+    }
+
+    if let Some(ref kubernetes) = entry.kubernetes {
+        extra_lines.push(Line::from(Span::styled("  ☸ Kubernetes", theme.title())));
+        extra_lines.push(Line::from(vec![
+            Span::styled("    Resource:  ", theme.muted()),
+            Span::styled(kubernetes.resource_display(), theme.info()),
+        ]));
+        if let Some(namespace) = &kubernetes.namespace {
+            extra_lines.push(Line::from(vec![
+                Span::styled("    Namespace: ", theme.muted()),
+                Span::raw(namespace),
+            ]));
+        }
+        if let Some(context) = &kubernetes.context {
+            extra_lines.push(Line::from(vec![
+                Span::styled("    Context:   ", theme.muted()),
+                Span::raw(context),
+            ]));
+        }
+        extra_lines.push(Line::from(vec![
+            Span::styled("    Ports:     ", theme.muted()),
+            Span::raw(match kubernetes.remote_port {
+                Some(remote_port) => format!("{} -> {}", kubernetes.local_port, remote_port),
+                None => kubernetes.local_port.to_string(),
+            }),
+        ]));
+        if let Some(bind_address) = &kubernetes.bind_address {
+            extra_lines.push(Line::from(vec![
+                Span::styled("    Address:   ", theme.muted()),
+                Span::raw(bind_address),
+            ]));
+        }
         extra_lines.push(Line::from(""));
     }
 

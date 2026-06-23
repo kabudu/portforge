@@ -20,6 +20,8 @@ pub struct PortEntry {
     pub docker: Option<DockerInfo>,
     pub git: Option<GitInfo>,
     pub tunnel: Option<TunnelInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kubernetes: Option<KubernetesInfo>,
     pub status: Status,
     pub health_check: Option<HealthResult>,
 }
@@ -90,6 +92,14 @@ impl PortEntry {
             None => String::from("—"),
         }
     }
+
+    /// Returns a compact display string for Kubernetes port-forward metadata.
+    pub fn kubernetes_display(&self) -> String {
+        match &self.kubernetes {
+            Some(k) => k.compact_display(),
+            None => String::from("—"),
+        }
+    }
 }
 
 /// Network protocol.
@@ -140,6 +150,42 @@ pub struct TunnelInfo {
     pub kind: String,
     /// Public URL if available
     pub public_url: Option<String>,
+}
+
+/// Kubernetes port-forward metadata parsed from a local `kubectl` process.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct KubernetesInfo {
+    pub tool: String,
+    pub resource_kind: String,
+    pub resource_name: String,
+    pub namespace: Option<String>,
+    pub context: Option<String>,
+    pub local_port: u16,
+    pub remote_port: Option<u16>,
+    pub bind_address: Option<String>,
+}
+
+impl KubernetesInfo {
+    /// Human-readable resource identifier.
+    pub fn resource_display(&self) -> String {
+        format!("{}/{}", self.resource_kind, self.resource_name)
+    }
+
+    /// Compact table-friendly port-forward display.
+    pub fn compact_display(&self) -> String {
+        let ports = match self.remote_port {
+            Some(remote_port) if remote_port != self.local_port => {
+                format!(":{}->{}", self.local_port, remote_port)
+            }
+            Some(remote_port) => format!(":{}", remote_port),
+            None => format!(":{}", self.local_port),
+        };
+
+        match &self.namespace {
+            Some(namespace) => format!("{} {}{}", namespace, self.resource_display(), ports),
+            None => format!("{}{}", self.resource_display(), ports),
+        }
+    }
 }
 
 /// Health check result.

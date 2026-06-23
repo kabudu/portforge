@@ -5,6 +5,7 @@ use crate::error::Result;
 use crate::git;
 use crate::health;
 use crate::health::HealthCheckType;
+use crate::kubernetes;
 use crate::models::*;
 use crate::project;
 use crate::tunnel;
@@ -21,6 +22,7 @@ use tracing::{debug, warn};
 /// - Git repository status (branch, dirty state)
 /// - Docker container mapping
 /// - Tunnel service detection (ngrok, cloudflared, etc.)
+/// - Kubernetes port-forward detection
 /// - Health check results
 ///
 /// # Arguments
@@ -141,6 +143,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
             let git_info = cwd.as_ref().and_then(|cwd| cached_git(cwd, &mut git_cache));
             let docker_info = docker_map.get(&port).cloned();
             let tunnel_info = tunnel::detect_tunnel(&process_name, &command);
+            let kubernetes_info = detect_kubernetes_info(port, &process_name, &command);
 
             let protocol = match listener.protocol {
                 listeners::Protocol::TCP => Protocol::Tcp,
@@ -168,6 +171,7 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
                 docker: docker_info,
                 git: git_info,
                 tunnel: tunnel_info,
+                kubernetes: kubernetes_info,
                 status,
                 health_check: None,
             });
@@ -229,6 +233,10 @@ fn cached_git(cwd: &Path, cache: &mut HashMap<PathBuf, Option<GitInfo>>) -> Opti
         .entry(key)
         .or_insert_with(|| git::get_git_info(cwd))
         .clone()
+}
+
+fn detect_kubernetes_info(port: u16, process_name: &str, command: &str) -> Option<KubernetesInfo> {
+    kubernetes::detect_port_forward(port, process_name, command)
 }
 
 fn should_skip_listener_pid(pid: u32) -> bool {
@@ -514,6 +522,7 @@ mod tests {
             docker: None,
             git: None,
             tunnel: None,
+            kubernetes: None,
             status: Status::Unknown,
             health_check: None,
         }
@@ -641,5 +650,22 @@ mod tests {
         assert!(should_skip_listener_pid(0));
         assert!(!should_skip_listener_pid(1));
         assert!(!should_skip_listener_pid(4242));
+    }
+
+    #[test]
+    fn test_detect_kubernetes_info_from_kubectl_command() {
+        let kubernetes = detect_kubernetes_info(
+            18080,
+            "kubectl",
+            "kubectl port-forward svc/api 18080:80 -n dev --context staging",
+        )
+        .unwrap();
+
+        assert_eq!(kubernetes.resource_kind, "service");
+        assert_eq!(kubernetes.resource_name, "api");
+        assert_eq!(kubernetes.namespace.as_deref(), Some("dev"));
+        assert_eq!(kubernetes.context.as_deref(), Some("staging"));
+        assert_eq!(kubernetes.local_port, 18080);
+        assert_eq!(kubernetes.remote_port, Some(80));
     }
 }

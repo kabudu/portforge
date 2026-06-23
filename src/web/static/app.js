@@ -76,6 +76,20 @@ function renderDetail(entry) {
         </div>`;
   }
 
+  if (entry.kubernetes) {
+    const kube = entry.kubernetes;
+    html += `
+        <div class="detail-section">
+            <h3>☸ Kubernetes</h3>
+            <div class="detail-row"><span class="detail-label">Resource</span><span class="detail-value" style="color: var(--accent-blue);">${escapeHtml(kube.resource_kind)}/${escapeHtml(kube.resource_name)}</span></div>
+            ${kube.namespace ? `<div class="detail-row"><span class="detail-label">Namespace</span><span class="detail-value">${escapeHtml(kube.namespace)}</span></div>` : ""}
+            ${kube.context ? `<div class="detail-row"><span class="detail-label">Context</span><span class="detail-value">${escapeHtml(kube.context)}</span></div>` : ""}
+            <div class="detail-row"><span class="detail-label">Local Port</span><span class="detail-value">${kube.local_port}</span></div>
+            ${kube.remote_port ? `<div class="detail-row"><span class="detail-label">Remote Port</span><span class="detail-value">${kube.remote_port}</span></div>` : ""}
+            ${kube.bind_address ? `<div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${escapeHtml(kube.bind_address)}</span></div>` : ""}
+        </div>`;
+  }
+
   if (entry.health_check) {
     html += `
         <div class="detail-section">

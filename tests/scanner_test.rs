@@ -78,6 +78,7 @@ fn create_entry(port: u16, name: &str, status: Status) -> PortEntry {
         docker: None,
         git: None,
         tunnel: None,
+        kubernetes: None,
         status,
         health_check: None,
     }

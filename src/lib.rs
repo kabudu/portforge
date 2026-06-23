@@ -6,6 +6,7 @@ pub mod error;
 pub mod export;
 pub mod git;
 pub mod health;
+pub mod kubernetes;
 pub mod models;
 pub mod port_utils;
 pub mod process;

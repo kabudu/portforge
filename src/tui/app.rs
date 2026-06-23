@@ -389,6 +389,7 @@ impl App {
                         || e.project_display().to_lowercase().contains(&query)
                         || e.git_display().to_lowercase().contains(&query)
                         || e.tunnel_display().to_lowercase().contains(&query)
+                        || e.kubernetes_display().to_lowercase().contains(&query)
                         || e.docker_display().to_lowercase().contains(&query)
                         || e.command.to_lowercase().contains(&query)
                 })
@@ -781,6 +782,7 @@ mod tests {
             docker: None,
             git: None,
             tunnel: None,
+            kubernetes: None,
             status: Status::Healthy,
             health_check: None,
         }

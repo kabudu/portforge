@@ -20,6 +20,7 @@ fn test_tunnel_display_with_url() {
             kind: "ngrok".to_string(),
             public_url: Some("abc123.ngrok.io".to_string()),
         }),
+        kubernetes: None,
         status: Status::Healthy,
         health_check: None,
     };
@@ -47,6 +48,7 @@ fn test_tunnel_display_without_url() {
             kind: "ssh".to_string(),
             public_url: None,
         }),
+        kubernetes: None,
         status: Status::Healthy,
         health_check: None,
     };
@@ -71,6 +73,7 @@ fn test_tunnel_display_none() {
         docker: None,
         git: None,
         tunnel: None,
+        kubernetes: None,
         status: Status::Healthy,
         health_check: None,
     };

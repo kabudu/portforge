@@ -79,6 +79,25 @@ fn test_port_entry_docker_display() {
 }
 
 #[test]
+fn test_port_entry_kubernetes_display() {
+    let mut entry = create_test_entry(18080, "kubectl", 100);
+    assert_eq!(entry.kubernetes_display(), "—");
+
+    entry.kubernetes = Some(KubernetesInfo {
+        tool: "kubectl".to_string(),
+        resource_kind: "service".to_string(),
+        resource_name: "api".to_string(),
+        namespace: Some("dev".to_string()),
+        context: Some("staging".to_string()),
+        local_port: 18080,
+        remote_port: Some(80),
+        bind_address: Some("127.0.0.1".to_string()),
+    });
+
+    assert_eq!(entry.kubernetes_display(), "dev service/api:18080->80");
+}
+
+#[test]
 fn test_status_display() {
     assert_eq!(Status::Healthy.to_string(), "● Healthy");
     assert_eq!(Status::Zombie.to_string(), "✗ Zombie");
@@ -129,6 +148,31 @@ fn test_model_serialization() {
 }
 
 #[test]
+fn test_model_deserialization_defaults_missing_kubernetes() {
+    let json = r#"{
+        "port": 8080,
+        "protocol": "Tcp",
+        "pid": 1234,
+        "label": null,
+        "process_name": "rust-app",
+        "command": "rust-app",
+        "cwd": null,
+        "memory_mb": 50.0,
+        "cpu_percent": 2.5,
+        "uptime_secs": 60,
+        "project": null,
+        "docker": null,
+        "git": null,
+        "tunnel": null,
+        "status": "Unknown",
+        "health_check": null
+    }"#;
+
+    let parsed: PortEntry = serde_json::from_str(json).unwrap();
+    assert!(parsed.kubernetes.is_none());
+}
+
+#[test]
 fn test_health_status_display() {
     assert_eq!(HealthStatus::Healthy.to_string(), "✓ Healthy");
     assert_eq!(HealthStatus::Unhealthy.to_string(), "✗ Unhealthy");
@@ -153,6 +197,7 @@ fn create_test_entry(port: u16, name: &str, uptime: u64) -> PortEntry {
         docker: None,
         git: None,
         tunnel: None,
+        kubernetes: None,
         status: Status::Unknown,
         health_check: None,
     }

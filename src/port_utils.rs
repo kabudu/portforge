@@ -242,6 +242,7 @@ mod tests {
             docker: None,
             git: None,
             tunnel: None,
+            kubernetes: None,
             status: Status::Healthy,
             health_check: Some(HealthResult {
                 status: HealthStatus::Healthy,

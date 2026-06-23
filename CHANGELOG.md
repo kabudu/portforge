@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Kubernetes Port-Forward Awareness** — PortForge now detects `kubectl port-forward` listeners and surfaces the forwarded resource, namespace, context, bind address, and port mapping across CLI, TUI, web, JSON, and CSV outputs.
+
 ### Changed
+
+- **CSV Export** — CSV output now includes Kubernetes metadata columns for detected port-forward sessions.
 
 ### Fixed
 

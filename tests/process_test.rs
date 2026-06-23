@@ -17,6 +17,7 @@ fn create_test_entry(port: u16, pid: u32) -> PortEntry {
         docker: None,
         git: None,
         tunnel: None,
+        kubernetes: None,
         status: Status::Healthy,
         health_check: None,
     }
