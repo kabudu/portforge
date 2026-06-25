@@ -185,7 +185,6 @@ impl App {
 
     /// Run the TUI application event loop.
     pub async fn run(&mut self) -> Result<()> {
-        // Terminal setup
         enable_raw_mode().map_err(|e| PortForgeError::TuiError(e.to_string()))?;
         let mut stdout = io::stdout();
         if self.mouse_enabled {
@@ -195,21 +194,37 @@ impl App {
             execute!(stdout, EnterAlternateScreen)
                 .map_err(|e| PortForgeError::TuiError(e.to_string()))?;
         }
+
         let backend = CrosstermBackend::new(stdout);
         let mut terminal =
             Terminal::new(backend).map_err(|e| PortForgeError::TuiError(e.to_string()))?;
+        let mut mouse_capture_enabled = self.mouse_enabled;
 
-        // Initial scan
+        let run_result = self
+            .run_event_loop(&mut terminal, &mut mouse_capture_enabled)
+            .await;
+        let cleanup_result = cleanup_terminal(&mut terminal, mouse_capture_enabled);
+
+        match (run_result, cleanup_result) {
+            (Err(run_error), _) => Err(run_error),
+            (Ok(()), Err(cleanup_error)) => Err(cleanup_error),
+            (Ok(()), Ok(())) => Ok(()),
+        }
+    }
+
+    async fn run_event_loop(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        mouse_capture_enabled: &mut bool,
+    ) -> Result<()> {
         self.refresh_data().await;
 
         let tick_rate = Duration::from_millis(100);
         let refresh_duration = Duration::from_secs(self.refresh_interval);
         let mut last_refresh = Instant::now();
-        let mut mouse_capture_enabled = self.mouse_enabled;
 
-        // Event loop
         loop {
-            if self.mouse_enabled != mouse_capture_enabled {
+            if self.mouse_enabled != *mouse_capture_enabled {
                 if self.mouse_enabled {
                     execute!(terminal.backend_mut(), EnableMouseCapture)
                         .map_err(|e| PortForgeError::TuiError(e.to_string()))?;
@@ -217,15 +232,13 @@ impl App {
                     execute!(terminal.backend_mut(), DisableMouseCapture)
                         .map_err(|e| PortForgeError::TuiError(e.to_string()))?;
                 }
-                mouse_capture_enabled = self.mouse_enabled;
+                *mouse_capture_enabled = self.mouse_enabled;
             }
 
-            // Draw
             terminal
                 .draw(|f| ui::render(f, self))
                 .map_err(|e| PortForgeError::TuiError(e.to_string()))?;
 
-            // Handle input
             if event::poll(tick_rate).map_err(|e| PortForgeError::TuiError(e.to_string()))? {
                 match event::read().map_err(|e| PortForgeError::TuiError(e.to_string()))? {
                     Event::Key(key) => self.handle_key_event(key).await,
@@ -234,16 +247,13 @@ impl App {
                 }
             }
 
-            // Auto-refresh
             if last_refresh.elapsed() >= refresh_duration {
                 self.refresh_data().await;
                 last_refresh = Instant::now();
             }
 
-            // Collect resource samples
             self.collect_resource_samples();
 
-            // Clear expired status messages (after 3 seconds)
             if let Some((_, created)) = &self.status_message {
                 if created.elapsed() > Duration::from_secs(3) {
                     self.status_message = None;
@@ -254,23 +264,6 @@ impl App {
                 break;
             }
         }
-
-        // Terminal cleanup
-        disable_raw_mode().map_err(|e| PortForgeError::TuiError(e.to_string()))?;
-        if mouse_capture_enabled {
-            execute!(
-                terminal.backend_mut(),
-                LeaveAlternateScreen,
-                DisableMouseCapture
-            )
-            .map_err(|e| PortForgeError::TuiError(e.to_string()))?;
-        } else {
-            execute!(terminal.backend_mut(), LeaveAlternateScreen)
-                .map_err(|e| PortForgeError::TuiError(e.to_string()))?;
-        }
-        terminal
-            .show_cursor()
-            .map_err(|e| PortForgeError::TuiError(e.to_string()))?;
 
         Ok(())
     }
@@ -726,6 +719,33 @@ impl App {
         scanner::sort_entries(&mut self.entries, self.sort_field, self.sort_direction);
         self.apply_filter();
     }
+}
+
+fn cleanup_terminal(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    mouse_capture_enabled: bool,
+) -> Result<()> {
+    let raw_mode_result = disable_raw_mode().map_err(|e| PortForgeError::TuiError(e.to_string()));
+
+    let screen_result = if mouse_capture_enabled {
+        execute!(
+            terminal.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )
+        .map_err(|e| PortForgeError::TuiError(e.to_string()))
+    } else {
+        execute!(terminal.backend_mut(), LeaveAlternateScreen)
+            .map_err(|e| PortForgeError::TuiError(e.to_string()))
+    };
+
+    let cursor_result = terminal
+        .show_cursor()
+        .map_err(|e| PortForgeError::TuiError(e.to_string()));
+
+    raw_mode_result?;
+    screen_result?;
+    cursor_result
 }
 
 fn table_data_bounds(terminal_rows: u16) -> Option<(u16, u16)> {

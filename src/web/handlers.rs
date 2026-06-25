@@ -1,14 +1,14 @@
-use crate::models::Status;
+use crate::models::{PortEntry, Protocol, Status};
 use crate::process;
 use crate::web::assets::StaticAssets;
 #[allow(unused_imports)]
 use crate::web::server::SharedState;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{Html, IntoResponse, Json},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ─── Dashboard Page ───
 
@@ -136,17 +136,66 @@ pub async fn api_ports(State(state): State<SharedState>) -> Json<Vec<crate::mode
 pub async fn api_port_detail(
     State(state): State<SharedState>,
     Path(port): Path<u16>,
+    Query(target): Query<TargetQuery>,
 ) -> impl IntoResponse {
     let state = state.lock().await;
-    match state.entries.iter().find(|e| e.port == port) {
-        Some(entry) => Json(entry.clone()).into_response(),
-        None => StatusCode::NOT_FOUND.into_response(),
+    match select_entry(&state.entries, port, &target) {
+        Ok(Some(entry)) => Json(entry.clone()).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(message) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({"message": message})),
+        )
+            .into_response(),
     }
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct TargetQuery {
+    pid: Option<u32>,
+    protocol: Option<String>,
+}
+
+fn select_entry<'a>(
+    entries: &'a [PortEntry],
+    port: u16,
+    target: &TargetQuery,
+) -> std::result::Result<Option<&'a PortEntry>, String> {
+    let protocol = target
+        .protocol
+        .as_deref()
+        .map(str::parse::<Protocol>)
+        .transpose()?;
+
+    let matches: Vec<&PortEntry> = entries
+        .iter()
+        .filter(|entry| {
+            entry.port == port
+                && target.pid.is_none_or(|pid| entry.pid == pid)
+                && protocol.is_none_or(|protocol| entry.protocol == protocol)
+        })
+        .collect();
+
+    match matches.as_slice() {
+        [] => Ok(None),
+        [entry] => Ok(Some(*entry)),
+        _ => Err("Multiple listeners match this port; specify protocol and PID".to_string()),
+    }
+}
+
+fn target_js_args(entry: &PortEntry) -> String {
+    format!(
+        "{}, '{}', {}",
+        entry.port,
+        entry.protocol.to_string().to_ascii_lowercase(),
+        entry.pid
+    )
 }
 
 pub async fn api_kill_port(
     State(state): State<SharedState>,
     Path(port): Path<u16>,
+    Query(target): Query<TargetQuery>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
     if !is_same_origin_request(&headers) {
@@ -159,15 +208,28 @@ pub async fn api_kill_port(
 
     let entry = {
         let state = state.lock().await;
-        state.entries.iter().find(|e| e.port == port).cloned()
+        match select_entry(&state.entries, port, &target) {
+            Ok(entry) => entry.cloned(),
+            Err(message) => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(serde_json::json!({"status": "error", "message": message})),
+                )
+                    .into_response();
+            }
+        }
     };
 
     match entry {
         Some(entry) => match process::kill_process(&entry, false) {
-            Ok(()) => Json(serde_json::json!({"status": "ok", "message": format!("Killed PID {} on port {}", entry.pid, port)})).into_response(),
+            Ok(()) => Json(serde_json::json!({"status": "ok", "message": format!("Sent SIGTERM to PID {} on port {}", entry.pid, port)})).into_response(),
             Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"status": "error", "message": e.to_string()}))).into_response(),
         },
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"status": "error", "message": "Port not found"}))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"status": "error", "message": "Port not found"})),
+        )
+            .into_response(),
     }
 }
 
@@ -194,7 +256,7 @@ fn is_same_origin_request(headers: &HeaderMap) -> bool {
         return origin_matches_host(referer, host);
     }
 
-    true
+    false
 }
 
 fn origin_matches_host(value: &str, host: &str) -> bool {
@@ -325,7 +387,7 @@ fn render_port_table(entries: &[crate::models::PortEntry]) -> String {
             .unwrap_or("");
 
         rows.push_str(&format!(
-            r#"<tr class="port-row" onclick="showDetail({port})">
+            r#"<tr class="port-row" onclick="showDetail({target_args})">
                 <td class="port-cell">{port}<span class="protocol">/{protocol}</span></td>
                 <td class="pid-cell">{pid}</td>
                 <td class="process-cell">{process}</td>
@@ -337,13 +399,14 @@ fn render_port_table(entries: &[crate::models::PortEntry]) -> String {
                 <td class="mem-cell">{mem:.0} MB</td>
                 <td><span class="status-badge {status_class}">{status}</span></td>
                 <td class="actions-cell">
-                    <button class="btn-kill" onclick="event.stopPropagation(); killPort({port})"
+                    <button class="btn-kill" onclick="event.stopPropagation(); killPort({target_args})"
                             title="Kill process">✕</button>
                 </td>
             </tr>"#,
             port = entry.port,
             protocol = entry.protocol,
             pid = entry.pid,
+            target_args = target_js_args(entry),
             process = html_escape(entry.display_name()),
             project = html_escape(&entry.project_display()),
             git = html_escape(&entry.git_display()),
@@ -412,6 +475,14 @@ mod tests {
             header::ORIGIN,
             HeaderValue::from_static("https://example.com"),
         );
+
+        assert!(!is_same_origin_request(&headers));
+    }
+
+    #[test]
+    fn test_same_origin_request_blocks_missing_origin_and_referer() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_static("127.0.0.1:9090"));
 
         assert!(!is_same_origin_request(&headers));
     }

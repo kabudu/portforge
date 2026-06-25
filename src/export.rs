@@ -1,33 +1,19 @@
 use crate::error::Result;
 use crate::models::PortEntry;
-use serde_json;
-use tabled::{Table, Tabled};
+use tabled::builder::Builder;
 
-#[derive(Tabled)]
 struct PortRow {
-    #[tabled(rename = "PORT")]
     port: String,
-    #[tabled(rename = "PID")]
-    pid: u32,
-    #[tabled(rename = "PROCESS")]
+    pid: String,
     process: String,
-    #[tabled(rename = "PROJECT")]
     project: String,
-    #[tabled(rename = "GIT")]
     git: String,
-    #[tabled(rename = "TUNNEL")]
     tunnel: String,
-    #[tabled(rename = "KUBERNETES")]
     kubernetes: String,
-    #[tabled(rename = "DOCKER")]
     docker: String,
-    #[tabled(rename = "UPTIME")]
     uptime: String,
-    #[tabled(rename = "MEM")]
     memory: String,
-    #[tabled(rename = "CPU")]
     cpu: String,
-    #[tabled(rename = "STATUS")]
     status: String,
 }
 
@@ -35,7 +21,7 @@ impl From<&PortEntry> for PortRow {
     fn from(e: &PortEntry) -> Self {
         Self {
             port: format!("{}/{}", e.port, e.protocol),
-            pid: e.pid,
+            pid: e.pid.to_string(),
             process: e.display_name().to_string(),
             project: e.project_display(),
             git: e.git_display(),
@@ -56,8 +42,40 @@ pub fn to_table(entries: &[PortEntry]) -> String {
         return "No ports found.".to_string();
     }
 
-    let rows: Vec<PortRow> = entries.iter().map(PortRow::from).collect();
-    Table::new(rows).to_string()
+    let mut builder = Builder::new();
+    builder.push_record([
+        "PORT",
+        "PID",
+        "PROCESS",
+        "PROJECT",
+        "GIT",
+        "TUNNEL",
+        "KUBERNETES",
+        "DOCKER",
+        "UPTIME",
+        "MEM",
+        "CPU",
+        "STATUS",
+    ]);
+
+    for row in entries.iter().map(PortRow::from) {
+        builder.push_record([
+            row.port,
+            row.pid,
+            row.process,
+            row.project,
+            row.git,
+            row.tunnel,
+            row.kubernetes,
+            row.docker,
+            row.uptime,
+            row.memory,
+            row.cpu,
+            row.status,
+        ]);
+    }
+
+    builder.build().to_string()
 }
 
 /// Export entries as JSON string.
@@ -158,13 +176,23 @@ pub fn to_csv(entries: &[PortEntry]) -> String {
     output
 }
 
-/// Escape a CSV field (quote if it contains commas or quotes).
+/// Escape a CSV field and neutralize spreadsheet formula injection.
 fn escape_csv(s: &str) -> String {
-    if s.contains(',') || s.contains('"') || s.contains('\n') {
-        format!("\"{}\"", s.replace('"', "\"\""))
+    let value = if starts_with_spreadsheet_formula(s) {
+        format!("'{}", s)
     } else {
         s.to_string()
+    };
+
+    if value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value
     }
+}
+
+fn starts_with_spreadsheet_formula(s: &str) -> bool {
+    matches!(s.as_bytes().first(), Some(b'=' | b'+' | b'-' | b'@'))
 }
 
 /// Print detailed inspection for a single port entry.

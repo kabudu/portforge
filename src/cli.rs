@@ -1,3 +1,4 @@
+use crate::models::Protocol;
 use clap::{Parser, Subcommand, ValueEnum};
 
 /// PortForge — Modern cross-platform port inspector & manager for developers
@@ -46,12 +47,28 @@ pub enum Commands {
     Inspect {
         /// Port number to inspect
         port: u16,
+
+        /// Process ID to inspect when multiple listeners share the port
+        #[arg(long)]
+        pid: Option<u32>,
+
+        /// Protocol to inspect when multiple listeners share the port
+        #[arg(long, value_parser = parse_protocol)]
+        protocol: Option<Protocol>,
     },
 
     /// Kill the process on a given port
     Kill {
         /// Port number to kill
         port: u16,
+
+        /// Process ID to kill when multiple listeners share the port
+        #[arg(long)]
+        pid: Option<u32>,
+
+        /// Protocol to kill when multiple listeners share the port
+        #[arg(long, value_parser = parse_protocol)]
+        protocol: Option<Protocol>,
 
         /// Force kill (SIGKILL instead of SIGTERM)
         #[arg(short, long)]
@@ -124,4 +141,8 @@ pub enum Commands {
 pub enum ExportFormat {
     Json,
     Csv,
+}
+
+fn parse_protocol(value: &str) -> std::result::Result<Protocol, String> {
+    value.parse()
 }

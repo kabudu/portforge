@@ -137,45 +137,56 @@ pub async fn scan_ports(config: &PortForgeConfig, show_all: bool) -> Result<Vec<
 
             let uptime_secs = proc_info.map(|p| p.run_time()).unwrap_or(0);
 
-            let project_info = cwd
-                .as_ref()
-                .and_then(|cwd| cached_project(cwd, config, &mut project_cache));
-            let git_info = cwd.as_ref().and_then(|cwd| cached_git(cwd, &mut git_cache));
-            let docker_info = docker_map.get(&port).cloned();
-            let tunnel_info = tunnel::detect_tunnel(&process_name, &command);
-            let kubernetes_info = detect_kubernetes_info(port, &process_name, &command);
-
             let protocol = match listener.protocol {
                 listeners::Protocol::TCP => Protocol::Tcp,
                 listeners::Protocol::UDP => Protocol::Udp,
             };
 
-            let status = determine_status(proc_info.is_some(), &project_info, &docker_info);
-            let label = config
-                .ports
-                .get(&port)
-                .and_then(|port_override| port_override.label.clone());
-
             entries.push(PortEntry {
                 port,
                 protocol,
                 pid,
-                label,
+                label: None,
                 process_name,
                 command,
                 cwd,
                 memory_mb,
                 cpu_percent,
                 uptime_secs,
-                project: project_info,
-                docker: docker_info,
-                git: git_info,
-                tunnel: tunnel_info,
-                kubernetes: kubernetes_info,
-                status,
+                project: None,
+                docker: None,
+                git: None,
+                tunnel: None,
+                kubernetes: None,
+                status: if proc_info.is_some() {
+                    Status::Unknown
+                } else {
+                    Status::Zombie
+                },
                 health_check: None,
             });
         }
+    }
+
+    for entry in &mut entries {
+        entry.project = entry
+            .cwd
+            .as_ref()
+            .and_then(|cwd| cached_project(cwd, config, &mut project_cache));
+        entry.git = entry
+            .cwd
+            .as_ref()
+            .and_then(|cwd| cached_git(cwd, &mut git_cache));
+        entry.docker = docker_map.get(&entry.port).cloned();
+        entry.tunnel = tunnel::detect_tunnel(&entry.process_name, &entry.command);
+        entry.kubernetes = detect_kubernetes_info(entry.port, &entry.process_name, &entry.command);
+        entry.label = config
+            .ports
+            .get(&entry.port)
+            .and_then(|port_override| port_override.label.clone());
+
+        let process_exists = entry.status != Status::Zombie;
+        entry.status = determine_status(process_exists, &entry.project, &entry.docker);
     }
 
     dedupe_listener_entries(&mut entries);
@@ -211,7 +222,10 @@ fn apply_view_filter(entries: &mut Vec<PortEntry>, config: &PortForgeConfig, sho
             .get(&e.port)
             .map(|port_override| port_override.hidden)
             .unwrap_or(false)
-            && (e.project.is_some() || e.docker.is_some() || e.label.is_some())
+            && (e.project.is_some()
+                || e.docker.is_some()
+                || e.kubernetes.is_some()
+                || e.label.is_some())
     });
 }
 
@@ -278,7 +292,7 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
     let mut handles = Vec::new();
 
     for entry in entries.iter() {
-        let port = entry.port;
+        let target = (entry.port, entry.protocol, entry.pid);
         let strategies = resolve_health_strategies(entry, config);
 
         let timeout = timeout_ms;
@@ -286,28 +300,31 @@ async fn run_health_checks(entries: &mut [PortEntry], config: &PortForgeConfig) 
         let sem_permit = semaphore.clone().acquire_owned().await.unwrap();
 
         handles.push(tokio::spawn(async move {
-            let result = run_health_strategies(port, strategies, timeout, client).await;
+            let result = run_health_strategies(target.0, strategies, timeout, client).await;
             drop(sem_permit); // Release permit when done
-            (port, result)
+            (target, result)
         }));
     }
 
     for handle in handles.into_iter() {
-        if let Ok((port, result)) = handle.await {
-            if let Some(entry) = entries.iter_mut().find(|e| e.port == port) {
-                entry.health_check = Some(result);
-                // Update status based on health check
-                if let Some(ref hc) = entry.health_check {
-                    if hc.status == HealthStatus::Healthy && entry.status == Status::Unknown {
-                        entry.status = Status::Healthy;
-                    } else if hc.status == HealthStatus::Unhealthy
-                        && entry.status == Status::Healthy
-                    {
-                        // Mark as warning if health check fails but process exists
-                        entry.status = Status::Warning("Health check failed".to_string());
-                    }
-                }
+        if let Ok(((port, protocol, pid), result)) = handle.await {
+            if let Some(entry) = entries
+                .iter_mut()
+                .find(|e| e.port == port && e.protocol == protocol && e.pid == pid)
+            {
+                apply_health_result(entry, result);
             }
+        }
+    }
+}
+
+fn apply_health_result(entry: &mut PortEntry, result: HealthResult) {
+    entry.health_check = Some(result);
+    if let Some(ref hc) = entry.health_check {
+        if hc.status == HealthStatus::Healthy && entry.status == Status::Unknown {
+            entry.status = Status::Healthy;
+        } else if hc.status == HealthStatus::Unhealthy && entry.status == Status::Healthy {
+            entry.status = Status::Warning("Health check failed".to_string());
         }
     }
 }
@@ -607,6 +624,42 @@ mod tests {
 
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].port, 3000);
+    }
+
+    #[test]
+    fn test_view_filter_keeps_kubernetes_ports() {
+        let config = PortForgeConfig::default();
+        let mut kubernetes = entry_with_command(
+            18080,
+            "kubectl",
+            "kubectl port-forward svc/api 18080:80 -n dev",
+        );
+        kubernetes.kubernetes =
+            detect_kubernetes_info(18080, &kubernetes.process_name, &kubernetes.command);
+        let unknown = entry_with_command(5000, "system", "");
+        let mut entries = vec![kubernetes, unknown];
+
+        apply_view_filter(&mut entries, &config, false);
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].port, 18080);
+        assert!(entries[0].kubernetes.is_some());
+    }
+
+    #[test]
+    fn test_apply_health_result_targets_one_entry() {
+        let mut entry = entry_with_command(3000, "server", "");
+        let result = HealthResult {
+            status: HealthStatus::Healthy,
+            status_code: Some(200),
+            latency_ms: 12,
+            endpoint: "/health".to_string(),
+        };
+
+        apply_health_result(&mut entry, result);
+
+        assert_eq!(entry.status, Status::Healthy);
+        assert_eq!(entry.health_check.unwrap().status_code, Some(200));
     }
 
     #[test]

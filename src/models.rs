@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 /// Represents a single port entry with all enriched metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +115,20 @@ impl fmt::Display for Protocol {
         match self {
             Protocol::Tcp => write!(f, "TCP"),
             Protocol::Udp => write!(f, "UDP"),
+        }
+    }
+}
+
+impl FromStr for Protocol {
+    type Err = String;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        match value.to_ascii_lowercase().as_str() {
+            "tcp" => Ok(Protocol::Tcp),
+            "udp" => Ok(Protocol::Udp),
+            other => Err(format!(
+                "unsupported protocol '{other}', expected tcp or udp"
+            )),
         }
     }
 }

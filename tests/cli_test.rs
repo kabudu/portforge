@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use portforge::port_utils;
 use predicates::prelude::*;
 
 #[test]
@@ -57,8 +58,9 @@ fn test_cli_json_output() {
 
 #[test]
 fn test_cli_inspect_nonexistent_port() {
+    let port = port_utils::find_free_port(50000).expect("expected a free test port");
     let mut cmd = Command::cargo_bin("portforge").unwrap();
-    cmd.args(["inspect", "59999"])
+    cmd.args(["inspect", &port.to_string()])
         .assert()
         .failure()
         .stderr(predicate::str::contains("No process found"));

@@ -25,22 +25,17 @@ fn create_test_entry(port: u16, pid: u32) -> PortEntry {
 
 #[test]
 fn test_kill_process_graceful() {
-    // Create a test entry - note this will fail in CI without actual process control
-    // but validates the API works
-    let entry = create_test_entry(9999, 1);
+    let entry = create_test_entry(9999, u32::MAX);
 
-    // This should handle gracefully even if PID doesn't exist
     let result = kill_process(&entry, false);
-    // We don't assert success since PID 1 likely exists and can't be killed
-    // Just verify it returns a Result
-    assert!(result.is_ok() || result.is_err());
+    assert!(result.is_ok());
 }
 
 #[test]
 fn test_kill_process_force() {
-    let entry = create_test_entry(9998, 1);
+    let entry = create_test_entry(9998, u32::MAX);
     let result = kill_process(&entry, true);
-    assert!(result.is_ok() || result.is_err());
+    assert!(result.is_ok());
 }
 
 #[test]

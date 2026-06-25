@@ -2,9 +2,10 @@
 
 // ─── Port Detail Modal ───
 
-async function showDetail(port) {
+async function showDetail(port, protocol, pid) {
   try {
-    const response = await fetch(`/api/ports/${port}`);
+    const query = targetQuery(protocol, pid);
+    const response = await fetch(`/api/ports/${port}${query}`);
     if (!response.ok) throw new Error("Port not found");
     const entry = await response.json();
 
@@ -102,7 +103,7 @@ function renderDetail(entry) {
 
   html += `
         <div style="margin-top: 24px; display: flex; gap: 8px;">
-            <button onclick="killPort(${entry.port}); closeModal();"
+            <button onclick="killPort(${Number(entry.port)}, '${escapeJsString(String(entry.protocol).toLowerCase())}', ${Number(entry.pid)}); closeModal();"
                     style="padding: 8px 20px; background: rgba(255, 107, 87, 0.14); border: 1px solid rgba(255, 107, 87, 0.3); color: var(--error); border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 150ms;">
                 Kill Process
             </button>
@@ -117,11 +118,12 @@ function renderDetail(entry) {
 
 // ─── Kill Port ───
 
-async function killPort(port) {
+async function killPort(port, protocol, pid) {
   if (!confirm(`Kill the process on port ${port}?`)) return;
 
   try {
-    const response = await fetch(`/api/ports/${port}/kill`, { method: "POST" });
+    const query = targetQuery(protocol, pid);
+    const response = await fetch(`/api/ports/${port}/kill${query}`, { method: "POST" });
     const result = await response.json();
 
     if (result.status === "ok") {
@@ -135,6 +137,18 @@ async function killPort(port) {
   } catch (err) {
     showToast(`✗ Failed to kill port ${port}`, "error");
   }
+}
+
+function targetQuery(protocol, pid) {
+  const params = new URLSearchParams();
+  if (protocol) params.set("protocol", protocol);
+  if (pid !== undefined && pid !== null) params.set("pid", String(pid));
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function escapeJsString(str) {
+  return str.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 // ─── Search / Filter ───

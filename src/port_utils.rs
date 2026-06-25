@@ -2,6 +2,7 @@ use crate::config::PortForgeConfig;
 use crate::error::Result;
 use crate::models::Protocol;
 use std::collections::HashMap;
+use std::io::ErrorKind;
 use std::net::TcpListener;
 
 /// Find a free port starting from the given port number.
@@ -12,7 +13,15 @@ pub fn find_free_port(start_port: u16) -> Option<u16> {
 
 /// Check if a port is free by attempting to bind to it.
 pub fn is_port_free(port: u16) -> bool {
-    TcpListener::bind(("127.0.0.1", port)).is_ok()
+    let Ok(_ipv4_listener) = TcpListener::bind(("127.0.0.1", port)) else {
+        return false;
+    };
+
+    match TcpListener::bind(("::1", port)) {
+        Ok(_ipv6_listener) => true,
+        Err(error) if error.kind() == ErrorKind::AddrNotAvailable => true,
+        Err(_) => false,
+    }
 }
 
 /// Find multiple free ports starting from a given port.

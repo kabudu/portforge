@@ -1,12 +1,14 @@
 use clap::Parser;
 use portforge::cli::{Cli, Commands, ExportFormat};
 use portforge::config::PortForgeConfig;
-use portforge::error::Result;
+use portforge::error::{PortForgeError, Result};
 use portforge::export;
+use portforge::models::{PortEntry, Protocol};
 use portforge::port_utils;
 use portforge::process;
 use portforge::scanner;
 use portforge::tui::app::App;
+use std::io::IsTerminal;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -22,13 +24,8 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
+        .with_ansi(!cli.no_color)
         .init();
-
-    // Disable colors if requested (NO_COLOR convention)
-    if cli.no_color {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("NO_COLOR", "1") };
-    }
 
     // Load config
     let config = PortForgeConfig::load()?;
@@ -44,7 +41,7 @@ async fn main() -> Result<()> {
             } else if cli.csv {
                 let entries = scanner::scan_ports(&config, show_all).await?;
                 print!("{}", export::to_csv(&entries));
-            } else if atty::is(atty::Stream::Stdout) {
+            } else if std::io::stdout().is_terminal() {
                 // Interactive terminal → launch TUI
                 let mut app = App::new(config, show_all);
                 app.run().await?;
@@ -55,9 +52,13 @@ async fn main() -> Result<()> {
             }
         }
 
-        Some(Commands::Inspect { port }) => {
+        Some(Commands::Inspect {
+            port,
+            pid,
+            protocol,
+        }) => {
             let entries = scanner::scan_ports(&config, true).await?;
-            if let Some(entry) = entries.iter().find(|e| e.port == port) {
+            if let Some(entry) = select_entry(&entries, port, protocol, pid)? {
                 if cli.json {
                     println!("{}", serde_json::to_string_pretty(entry)?);
                 } else {
@@ -69,9 +70,14 @@ async fn main() -> Result<()> {
             }
         }
 
-        Some(Commands::Kill { port, force }) => {
+        Some(Commands::Kill {
+            port,
+            pid,
+            protocol,
+            force,
+        }) => {
             let entries = scanner::scan_ports(&config, true).await?;
-            if let Some(entry) = entries.iter().find(|e| e.port == port) {
+            if let Some(entry) = select_entry(&entries, port, protocol, pid)? {
                 process::kill_process(entry, force)?;
                 println!(
                     "✓ {} PID {} on port {}",
@@ -204,4 +210,28 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn select_entry(
+    entries: &[PortEntry],
+    port: u16,
+    protocol: Option<Protocol>,
+    pid: Option<u32>,
+) -> Result<Option<&PortEntry>> {
+    let matches: Vec<&PortEntry> = entries
+        .iter()
+        .filter(|entry| {
+            entry.port == port
+                && protocol.is_none_or(|protocol| entry.protocol == protocol)
+                && pid.is_none_or(|pid| entry.pid == pid)
+        })
+        .collect();
+
+    match matches.as_slice() {
+        [] => Ok(None),
+        [entry] => Ok(Some(*entry)),
+        _ => Err(PortForgeError::ProcessError(format!(
+            "Port {port} matches multiple listeners; rerun with --pid and/or --protocol"
+        ))),
+    }
 }

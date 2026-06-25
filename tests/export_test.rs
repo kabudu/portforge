@@ -40,6 +40,16 @@ fn test_csv_export_escapes_kubernetes_resource() {
 }
 
 #[test]
+fn test_csv_export_neutralizes_spreadsheet_formula_values() {
+    let mut entry = base_entry();
+    entry.process_name = "=cmd|' /C calc'!A0".to_string();
+
+    let csv = export::to_csv(&[entry]);
+
+    assert!(csv.contains("'=cmd|' /C calc'!A0"));
+}
+
+#[test]
 fn test_table_export_includes_kubernetes_display() {
     let entry = entry_with_kubernetes();
     let table = export::to_table(&[entry]);

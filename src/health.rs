@@ -33,7 +33,6 @@ pub async fn check_health(port: u16, endpoint: &str, timeout_ms: u64) -> HealthR
 pub fn build_client(timeout_ms: u64) -> Result<reqwest::Client, reqwest::Error> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_millis(timeout_ms))
-        .danger_accept_invalid_certs(true)
         .no_proxy()
         .build()
 }

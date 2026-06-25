@@ -5,6 +5,7 @@ use axum::{
     Router,
     routing::{get, post},
 };
+use std::net::IpAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -18,6 +19,12 @@ pub type SharedState = Arc<Mutex<AppState>>;
 
 /// Start the web dashboard server.
 pub async fn start_server(bind: &str, port: u16, config: PortForgeConfig) -> Result<()> {
+    if !is_loopback_bind(bind) {
+        return Err(PortForgeError::WebError(format!(
+            "Refusing to bind web dashboard to non-loopback address '{bind}'. Bind to 127.0.0.1, ::1, or localhost."
+        )));
+    }
+
     let state: SharedState = Arc::new(Mutex::new(AppState {
         config: config.clone(),
         entries: Vec::new(),
@@ -41,9 +48,12 @@ pub async fn start_server(bind: &str, port: u16, config: PortForgeConfig) -> Res
         ));
         loop {
             interval.tick().await;
-            if let Ok(entries) = crate::scanner::scan_ports(&scanner_config, false).await {
-                let mut state_lock = scanner_state.lock().await;
-                state_lock.entries = entries;
+            match crate::scanner::scan_ports(&scanner_config, false).await {
+                Ok(entries) => {
+                    let mut state_lock = scanner_state.lock().await;
+                    state_lock.entries = entries;
+                }
+                Err(e) => tracing::warn!("Background scan failed: {}", e),
             }
         }
     });
@@ -75,4 +85,31 @@ pub async fn start_server(bind: &str, port: u16, config: PortForgeConfig) -> Res
         .map_err(|e| PortForgeError::WebError(e.to_string()))?;
 
     Ok(())
+}
+
+fn is_loopback_bind(bind: &str) -> bool {
+    bind.eq_ignore_ascii_case("localhost")
+        || bind
+            .parse::<IpAddr>()
+            .map(|address| address.is_loopback())
+            .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_loopback_bind;
+
+    #[test]
+    fn test_loopback_bind_allows_local_addresses() {
+        assert!(is_loopback_bind("127.0.0.1"));
+        assert!(is_loopback_bind("::1"));
+        assert!(is_loopback_bind("localhost"));
+    }
+
+    #[test]
+    fn test_loopback_bind_rejects_remote_addresses() {
+        assert!(!is_loopback_bind("0.0.0.0"));
+        assert!(!is_loopback_bind("::"));
+        assert!(!is_loopback_bind("192.168.1.10"));
+    }
 }
