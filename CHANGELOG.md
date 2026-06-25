@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-25
+
 ### Added
 
 - **Kubernetes Port-Forward Awareness** — PortForge now detects `kubectl port-forward` listeners and surfaces the forwarded resource, namespace, context, bind address, and port mapping across CLI, TUI, web, JSON, and CSV outputs.
@@ -16,8 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **CSV Export** — CSV output now includes Kubernetes metadata columns for detected port-forward sessions.
+- **Port Targeting** — `inspect` and `kill` now disambiguate duplicate listeners by protocol and PID instead of guessing from port alone.
+- **Scanner Performance** — Project, git, tunnel, Docker, and Kubernetes enrichment now runs outside the global process metadata lock.
+- **Table Export** — Pretty table output now avoids the derive-based dependency path while preserving the existing table surface.
 
 ### Fixed
+
+- **Security Audit** — Cleared RustSec vulnerability findings and removed the unmaintained `atty` dependency.
+- **Web Dashboard Safety** — The web server now refuses non-loopback binds, rejects mutating requests without same-origin evidence, and targets kill actions by port/protocol/PID.
+- **Kill Safety** — Non-force kills no longer escalate to `SIGKILL`; use `--force` explicitly for forceful termination.
+- **Kubernetes Visibility** — Kubernetes-only port-forwards now remain visible in the default dev-focused view.
+- **Health Checks** — Health results now apply to the exact listener tuple instead of the first matching port.
+- **CSV Safety** — CSV export now neutralizes spreadsheet formula injection.
+- **Free Port Finder** — Free-port detection now checks IPv4 and IPv6 loopback availability.
+- **TUI Cleanup** — Terminal raw mode and alternate screen are restored on event-loop errors.
 
 ## [0.2.2] - 2026-05-15
 
