@@ -21,7 +21,8 @@ pub fn render(f: &mut Frame, app: &App) {
         area,
     );
 
-    // Main layout: header + tabs + content + status bar
+    // Main layout mirrors the marketing composition: a compact product masthead,
+    // a command/tab rail, the live workspace, and a persistent shortcut rail.
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -41,7 +42,7 @@ pub fn render(f: &mut Frame, app: &App) {
     // Content area based on active tab
     match app.active_tab {
         Tab::Ports => match app.view_mode {
-            ViewMode::Table | ViewMode::Search => render_table(f, chunks[2], app),
+            ViewMode::Table | ViewMode::Search => render_ports_workspace(f, chunks[2], app),
             ViewMode::Detail => render_detail(f, chunks[2], app),
             ViewMode::ProcessTree => render_process_tree(f, chunks[2], app),
             _ => render_table(f, chunks[2], app),
@@ -65,6 +66,113 @@ pub fn render(f: &mut Frame, app: &App) {
         ViewMode::Search => widgets::render_search_bar(f, area, &app.search_query, theme),
         _ => {}
     }
+}
+
+/// Marketing-style ports workspace: table above a live event log and inspector.
+/// On small terminals it collapses to the table so the TUI remains usable.
+fn render_ports_workspace(f: &mut Frame, area: Rect, app: &App) {
+    if area.width < 88 || area.height < 16 {
+        render_table(f, area, app);
+        return;
+    }
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(64), Constraint::Percentage(36)])
+        .split(area);
+    render_table(f, rows[0], app);
+
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(64), Constraint::Percentage(36)])
+        .split(rows[1]);
+    render_event_log(f, columns[0], app);
+    render_port_summary(f, columns[1], app);
+}
+
+fn render_event_log(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+    let lines: Vec<Line> = if app.activity_log.is_empty() {
+        vec![Line::from(Span::styled(
+            "  Waiting for activity…",
+            theme.muted(),
+        ))]
+    } else {
+        app.activity_log
+            .iter()
+            .rev()
+            .take(area.height.saturating_sub(2) as usize)
+            .map(|entry| {
+                Line::from(vec![
+                    Span::styled("  ", theme.muted()),
+                    Span::styled(entry, theme.info()),
+                ])
+            })
+            .collect()
+    };
+
+    f.render_widget(
+        Paragraph::new(lines).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(theme.border())
+                .title(Span::styled(" EVENTS LOG ", theme.title())),
+        ),
+        area,
+    );
+}
+
+fn render_port_summary(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+    let Some(entry) = app.selected_entry() else {
+        f.render_widget(
+            Paragraph::new("  Select a port to inspect it.")
+                .style(theme.muted())
+                .block(marketing_block(" PORT DETAILS ", theme)),
+            area,
+        );
+        return;
+    };
+
+    let network = entry
+        .kubernetes
+        .as_ref()
+        .and_then(|k| k.bind_address.as_deref())
+        .map(|address| format!("{}:{}", address, entry.port))
+        .unwrap_or_else(|| format!("{} :{}", entry.protocol, entry.port));
+    let details = [
+        ("PROCESS", entry.display_name().to_string()),
+        ("CMD", entry.command.clone()),
+        ("PROJECT", entry.project_display()),
+        ("CPU", format!("{:.1}%", entry.cpu_percent)),
+        ("MEM", format!("{:.1} MB", entry.memory_mb.max(0.0))),
+        ("NETWORK", network),
+    ];
+    let lines = details.into_iter().map(|(label, value)| {
+        Line::from(vec![
+            Span::styled(format!("  [{label:<7}] "), theme.muted()),
+            Span::styled(value, theme.process_name()),
+        ])
+    });
+
+    f.render_widget(
+        Paragraph::new(lines.collect::<Vec<_>>())
+            .wrap(Wrap { trim: true })
+            .block(marketing_block(
+                &format!(" PORT DETAILS [PID {}] ", entry.pid),
+                theme,
+            )),
+        area,
+    );
+}
+
+fn marketing_block<'a>(title: &'a str, theme: &crate::tui::theme::Theme) -> Block<'a> {
+    Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(theme.border())
+        .title(Span::styled(title, theme.title()))
 }
 
 /// Render the tab bar.
@@ -131,19 +239,29 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
     }
 
     // Column headers with sort indicators
-    let header_cells = [
-        ("Port", SortCol::Port),
-        ("PID", SortCol::Pid),
-        ("Process", SortCol::Process),
-        ("Project", SortCol::Project),
-        ("Git", SortCol::Git),
-        ("Tunnel", SortCol::Tunnel),
-        ("Docker", SortCol::Docker),
-        ("Uptime", SortCol::Uptime),
-        ("CPU %", SortCol::Cpu),
-        ("Mem MB", SortCol::Mem),
-        ("Status", SortCol::Status),
-    ];
+    let marketing_layout = area.width >= 118;
+    let header_cells = if marketing_layout {
+        vec![
+            ("ID", SortCol::Index),
+            ("PORT", SortCol::Port),
+            ("PID", SortCol::Pid),
+            ("PROCESS", SortCol::Process),
+            ("CMD", SortCol::Command),
+            ("HEALTH", SortCol::Status),
+            ("UP TIME", SortCol::Uptime),
+            ("NETWORK", SortCol::Network),
+        ]
+    } else {
+        vec![
+            ("PORT", SortCol::Port),
+            ("PID", SortCol::Pid),
+            ("PROCESS", SortCol::Process),
+            ("PROJECT", SortCol::Project),
+            ("CPU", SortCol::Cpu),
+            ("MEM", SortCol::Mem),
+            ("STATUS", SortCol::Status),
+        ]
+    };
 
     let header = Row::new(header_cells.iter().map(|(name, col)| {
         let sort_indicator = if col.matches_field(app.sort_field) {
@@ -188,21 +306,11 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                 format!("{:.1}%", entry.cpu_percent)
             };
 
-            let cells = vec![
+            let compact_cells = vec![
                 Cell::from(format!("{}", entry.port)).style(theme.port_number()),
                 Cell::from(format!("{}", entry.pid)).style(theme.muted()),
                 Cell::from(entry.display_name().to_string()).style(theme.process_name()),
                 Cell::from(entry.project_display()).style(theme.info()),
-                Cell::from(entry.git_display()).style(
-                    if entry.git.as_ref().is_some_and(|g| g.dirty) {
-                        theme.git_dirty()
-                    } else {
-                        theme.git_clean()
-                    },
-                ),
-                Cell::from(entry.tunnel_display()).style(theme.tunnel()),
-                Cell::from(entry.docker_display()).style(theme.docker()),
-                Cell::from(entry.uptime_display()).style(theme.muted()),
                 Cell::from(cpu_display).style(if entry.cpu_percent > 50.0 {
                     theme.warning()
                 } else {
@@ -211,6 +319,21 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
                 Cell::from(format!("{:.0}MB", entry.memory_mb.max(0.0))).style(theme.muted()),
                 Cell::from(entry.status.to_string()).style(status_style),
             ];
+
+            let cells = if marketing_layout {
+                vec![
+                    Cell::from(format!("{}", absolute_index + 1)).style(theme.muted()),
+                    Cell::from(format!("{}", entry.port)).style(theme.port_number()),
+                    Cell::from(format!("{}", entry.pid)).style(theme.muted()),
+                    Cell::from(entry.display_name().to_string()).style(theme.process_name()),
+                    Cell::from(entry.command.clone()).style(theme.info()),
+                    Cell::from(entry.status.to_string()).style(status_style),
+                    Cell::from(entry.uptime_display()).style(theme.muted()),
+                    Cell::from(format!("{} :{}", entry.protocol, entry.port)).style(theme.muted()),
+                ]
+            } else {
+                compact_cells
+            };
 
             let style = if is_selected {
                 theme.row_selected()
@@ -224,58 +347,65 @@ fn render_table(f: &mut Frame, area: Rect, app: &App) {
         })
         .collect();
 
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Length(7),  // Port
-            Constraint::Length(8),  // PID
-            Constraint::Length(15), // Process
-            Constraint::Min(16),    // Project
-            Constraint::Length(12), // Git
-            Constraint::Length(22), // Tunnel
-            Constraint::Length(14), // Docker
-            Constraint::Length(9),  // Uptime
-            Constraint::Length(16), // CPU (with sparkline)
-            Constraint::Length(8),  // Mem
-            Constraint::Length(12), // Status
-        ],
-    )
-    .header(header)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(if app.view_mode == ViewMode::Search {
-                theme.border_focus()
-            } else {
-                theme.border()
-            })
-            .title(Span::styled(
-                format!(
-                    " ◆ Active Ports ({}{}) ",
-                    app.filtered_entries.len(),
-                    if !app.search_query.is_empty() {
-                        format!(" / {} total", app.entries.len())
-                    } else {
-                        String::new()
-                    }
-                ),
-                theme.title(),
-            ))
-            .title_bottom(Line::from(vec![
-                Span::styled(" Sort: ", theme.muted()),
-                Span::styled(
+    let widths = if marketing_layout {
+        vec![
+            Constraint::Length(4),
+            Constraint::Length(7),
+            Constraint::Length(8),
+            Constraint::Length(16),
+            Constraint::Min(18),
+            Constraint::Length(15),
+            Constraint::Length(10),
+            Constraint::Length(17),
+        ]
+    } else {
+        vec![
+            Constraint::Length(7),
+            Constraint::Length(8),
+            Constraint::Length(16),
+            Constraint::Min(14),
+            Constraint::Length(14),
+            Constraint::Length(8),
+            Constraint::Length(15),
+        ]
+    };
+    let table = Table::new(rows, widths)
+        .header(header)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(if app.view_mode == ViewMode::Search {
+                    theme.border_focus()
+                } else {
+                    theme.border()
+                })
+                .title(Span::styled(
                     format!(
-                        "{} {}",
-                        app.sort_field.label(),
-                        app.sort_direction.indicator()
+                        " ACTIVE PORTS: {}{} ",
+                        app.filtered_entries.len(),
+                        if !app.search_query.is_empty() {
+                            format!(" / {} total", app.entries.len())
+                        } else {
+                            String::new()
+                        }
                     ),
-                    theme.accent(),
-                ),
-                Span::raw(" "),
-            ])),
-    )
-    .row_highlight_style(theme.row_selected());
+                    theme.title(),
+                ))
+                .title_bottom(Line::from(vec![
+                    Span::styled(" Sort: ", theme.muted()),
+                    Span::styled(
+                        format!(
+                            "{} {}",
+                            app.sort_field.label(),
+                            app.sort_direction.indicator()
+                        ),
+                        theme.accent(),
+                    ),
+                    Span::raw(" "),
+                ])),
+        )
+        .row_highlight_style(theme.row_selected());
 
     let mut state = TableState::default();
     if viewport_start <= app.selected && app.selected < viewport_end {
@@ -756,17 +886,17 @@ fn render_logs_tab(f: &mut Frame, area: Rect, app: &App) {
 
 /// Helper enum for matching sort columns.
 enum SortCol {
+    Index,
     Port,
     Pid,
     Process,
+    Command,
     Project,
-    Git,
-    Tunnel,
-    Docker,
     Uptime,
     Mem,
     Cpu,
     Status,
+    Network,
 }
 
 impl SortCol {
@@ -789,11 +919,87 @@ impl SortCol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::PortForgeConfig;
+    use crate::models::{PortEntry, Protocol};
+    use ratatui::{Terminal, backend::TestBackend};
 
     #[test]
     fn test_table_visible_rows_has_minimum_one() {
         assert_eq!(table_visible_rows(Rect::new(0, 0, 80, 0)), 1);
         assert_eq!(table_visible_rows(Rect::new(0, 0, 80, 4)), 1);
         assert_eq!(table_visible_rows(Rect::new(0, 0, 80, 12)), 8);
+    }
+
+    fn sample_app() -> App {
+        let mut app = App::new(PortForgeConfig::default(), true);
+        app.loading = false;
+        app.entries = vec![PortEntry {
+            port: 3000,
+            protocol: Protocol::Tcp,
+            pid: 18452,
+            label: None,
+            process_name: "node".into(),
+            command: "node server.js".into(),
+            cwd: None,
+            memory_mb: 88.4,
+            cpu_percent: 1.2,
+            uptime_secs: 862,
+            project: None,
+            docker: None,
+            git: None,
+            tunnel: None,
+            kubernetes: None,
+            status: Status::Healthy,
+            health_check: None,
+        }];
+        app.filtered_entries = vec![0];
+        app.activity_log
+            .push_back("[16:01:22] Port 3000 active".into());
+        app
+    }
+
+    fn rendered_text(width: u16, height: u16) -> String {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        let app = sample_app();
+        terminal.draw(|frame| render(frame, &app)).expect("render");
+        let buffer = terminal.backend().buffer();
+        (0..height)
+            .map(|y| {
+                (0..width)
+                    .map(|x| buffer[(x, y)].symbol())
+                    .collect::<String>()
+                    .trim_end()
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn marketing_workspace_renders_reference_hierarchy() {
+        let output = rendered_text(140, 32);
+        if std::env::var_os("PORTFORGE_PRINT_RENDER").is_some() {
+            eprintln!("{output}");
+        }
+        assert!(output.contains("PortForge v"));
+        assert!(output.contains("ACTIVE PORTS: 1"));
+        assert!(output.contains("PROCESS"));
+        assert!(output.contains("HEALTH"));
+        assert!(output.contains("UP TIME"));
+        assert!(output.contains("NETWORK"));
+        assert!(output.contains("EVENTS LOG"));
+        assert!(output.contains("PORT DETAILS [PID 18452]"));
+        assert!(output.contains("node server.js"));
+        assert!(output.contains("TCP :3000"));
+    }
+
+    #[test]
+    fn compact_terminal_omits_secondary_panels_without_losing_ports() {
+        let output = rendered_text(80, 14);
+        assert!(output.contains("ACTIVE PORTS: 1"));
+        assert!(output.contains("node"));
+        assert!(!output.contains("EVENTS LOG"));
+        assert!(!output.contains("PORT DETAILS"));
     }
 }

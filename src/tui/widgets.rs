@@ -3,7 +3,7 @@ use crate::tui::app::{App, ViewMode};
 use crate::tui::theme::Theme;
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
 };
@@ -11,20 +11,24 @@ use ratatui::{
 /// Render the application header bar.
 pub fn render_header(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.theme;
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(area);
-
-    // Left: title and version
     let title = Paragraph::new(Line::from(vec![
-        Span::styled(" ◆ ", theme.accent()),
+        Span::styled(" ▰ ", theme.title()),
         Span::styled("PortForge", theme.title()),
-        Span::styled(" · local port intelligence", theme.muted()),
         Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), theme.muted()),
-        Span::styled(format!(" [{}]", theme.name().as_str()), theme.muted()),
+        Span::styled("  │  ", theme.border()),
+        Span::styled("Active Ports: ", theme.muted()),
+        Span::styled(app.entries.len().to_string(), theme.title()),
+        Span::styled("  │  ", theme.border()),
+        Span::styled("[S]", theme.key_hint()),
+        Span::styled("can  ", theme.muted()),
+        Span::styled("[K]", theme.key_hint()),
+        Span::styled("ill  ", theme.muted()),
+        Span::styled("[R]", theme.key_hint()),
+        Span::styled("eload  ", theme.muted()),
+        Span::styled("[H]", theme.key_hint()),
+        Span::styled("elp", theme.muted()),
         if app.loading {
-            Span::styled(" ⟳", theme.accent())
+            Span::styled("  SCANNING…", theme.warning())
         } else {
             Span::raw("")
         },
@@ -35,41 +39,7 @@ pub fn render_header(f: &mut Frame, area: Rect, app: &App) {
             .border_type(BorderType::Rounded)
             .border_style(theme.border()),
     );
-    f.render_widget(title, chunks[0]);
-
-    // Right: stats
-    let total = app.entries.len();
-    let healthy = app
-        .entries
-        .iter()
-        .filter(|e| e.status == crate::models::Status::Healthy)
-        .count();
-    let docker_count = app.entries.iter().filter(|e| e.docker.is_some()).count();
-
-    let stats = Paragraph::new(Line::from(vec![
-        Span::styled(format!(" {}", total), theme.accent()),
-        Span::styled(" ports", theme.muted()),
-        Span::styled("  •  ", theme.title()),
-        Span::styled(format!("{}", healthy), theme.healthy()),
-        Span::styled(" healthy", theme.muted()),
-        Span::styled("  •  ", theme.title()),
-        Span::styled(format!("{}", docker_count), theme.docker()),
-        Span::styled(" docker", theme.muted()),
-        Span::styled("  •  ", theme.title()),
-        if app.show_all {
-            Span::styled("[ALL]", theme.warning())
-        } else {
-            Span::styled("[DEV]", theme.accent())
-        },
-    ]))
-    .alignment(Alignment::Right)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(theme.border()),
-    );
-    f.render_widget(stats, chunks[1]);
+    f.render_widget(title, area);
 }
 
 /// Render the bottom status bar.
