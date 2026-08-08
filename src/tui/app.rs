@@ -26,6 +26,7 @@ const TAB_ROWS: u16 = 1;
 const STATUS_ROWS: u16 = 1;
 const TABLE_CHROME_ROWS: u16 = 4;
 const TABLE_DATA_START_OFFSET: u16 = 2;
+const MARKETING_TABLE_PERCENT: u16 = 64;
 const DOUBLE_CLICK_WINDOW: Duration = Duration::from_millis(500);
 
 /// TUI application view mode.
@@ -497,7 +498,7 @@ impl App {
             KeyCode::Char('/') => {
                 self.view_mode = ViewMode::Search;
             }
-            KeyCode::Char('?') => {
+            KeyCode::Char('?') | KeyCode::Char('h') | KeyCode::Char('H') => {
                 self.view_mode = ViewMode::Help;
             }
             KeyCode::Char('a') | KeyCode::Char('A') => {
@@ -524,7 +525,7 @@ impl App {
             KeyCode::Char('8') => self.toggle_sort(SortField::Status),
 
             // Refresh
-            KeyCode::Char('r') => {
+            KeyCode::Char('r') | KeyCode::Char('R') | KeyCode::Char('s') | KeyCode::Char('S') => {
                 self.set_status("Refreshing...".to_string());
                 self.refresh_data().await;
             }
@@ -750,7 +751,14 @@ fn cleanup_terminal(
 
 fn table_data_bounds(terminal_rows: u16) -> Option<(u16, u16)> {
     let content_height = terminal_rows.saturating_sub(HEADER_ROWS + TAB_ROWS + STATUS_ROWS);
-    let visible_rows = content_height.saturating_sub(TABLE_CHROME_ROWS);
+    // The marketing workspace gives the upper 64% to the port table. Tiny
+    // terminals use the full content area via the renderer's compact fallback.
+    let table_height = if content_height >= 16 {
+        content_height.saturating_mul(MARKETING_TABLE_PERCENT) / 100
+    } else {
+        content_height
+    };
+    let visible_rows = table_height.saturating_sub(TABLE_CHROME_ROWS);
     if visible_rows == 0 {
         return None;
     }

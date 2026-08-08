@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-08
+
+### Added
+
+- **Live Port Inspector** - The primary Ports workspace now keeps the selected process details and recent activity visible alongside the port table.
+- **Renderer Coverage** - Wide and compact terminal layouts now have renderer-level regression tests.
+
+### Changed
+
+- **Marketing TUI** - The terminal interface now follows the marketing visual hierarchy with a PortForge command masthead, compact active-port grid, event log, and port details panel.
+- **Responsive Layout** - Smaller terminals collapse secondary panels while retaining port navigation and actions.
+- **Keyboard Shortcuts** - `S` now scans, `R` reloads, and `H` opens help in addition to the existing shortcuts.
+
+### Fixed
+
+- **Mouse Selection** - Pointer row calculations now match the resized port table in the split workspace.
+- **Network Display** - The TUI no longer assumes every listener is bound to `127.0.0.1`; it displays known Kubernetes bind data or the listener protocol and port.
+
 ## [0.3.0] - 2026-06-25
 
 ### Added
