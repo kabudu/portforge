@@ -618,6 +618,14 @@ code {
   align-items: start;
 }
 
+.workflow-grid {
+  grid-template-columns: 1fr;
+}
+
+.workflow-grid > .section-heading {
+  max-width: 760px;
+}
+
 .workflow-points {
   margin: 1.35rem 0 0;
   padding-left: 1.1rem;
@@ -745,7 +753,6 @@ code {
 
 @media (max-width: 1100px) {
   .hero-grid,
-  .workflow-grid,
   .install-shell,
   .capability-grid {
     grid-template-columns: 1fr 1fr;
