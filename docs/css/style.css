@@ -356,8 +356,9 @@ code {
 }
 
 .hero h1 {
-  max-width: 12ch;
-  font-size: clamp(3rem, 6.2vw, 5.8rem);
+  max-width: 20ch;
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+  line-height: 1.1;
 }
 
 .hero-actions {
@@ -822,7 +823,7 @@ code {
   }
 
   .hero h1 {
-    max-width: 14ch;
+    max-width: 22ch;
   }
 
   .hero-signals {
